@@ -1,132 +1,176 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
-
-const socket = io("http://localhost:5000", {
-  auth: { userId: localStorage.getItem("userId") }
-});
+import API from "../services/api";
+import { getUserIdFromToken } from "../../../server/src/utils/auth";
+import "./Chat.css";
 
 function Chat() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
-  const [toUserId, setToUserId] = useState("");
-  const [typingUser, setTypingUser] = useState(null);
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [onlineUsers, setOnlineUsers] = useState([]);
+
+  const socketRef = useRef();
+  const scrollRef = useRef();
   const navigate = useNavigate();
+  const currentUserId = getUserIdFromToken();
 
   useEffect(() => {
-    socket.on("receive-message", (data) => {
+    if (!currentUserId) {
+      navigate("/login");
+      return;
+    }
+
+    socketRef.current = io("http://localhost:5000", {
+      auth: { userId: currentUserId },
+    });
+
+    const fetchUsers = async () => {
+      const res = await API.get("/users");
+      setAllUsers(res.data);
+    };
+    fetchUsers();
+
+    socketRef.current.on("receive-message", (data) => {
       setMessages((prev) => [...prev, data]);
     });
 
-    socket.on("typing-start", (userId) => {
-      setTypingUser(userId);
-    });
+    socketRef.current.on("online-users", (users) => setOnlineUsers(users));
 
-    socket.on("typing-stop", () => {
-      setTypingUser(null);
-    });
-
-    socket.on("user-online", (id) => {
-      setOnlineUsers((prev) => [...new Set([...prev, id])]);
-    });
-
-    socket.on("user-offline", (id) => {
-      setOnlineUsers((prev) => prev.filter((u) => u !== id));
-    });
-
-    socket.on("online-users", (users) => {
-      setOnlineUsers(users);
-    });
-
-    return () => {
-      socket.off("receive-message");
-      socket.off("typing-start");
-      socket.off("typing-stop");
-      socket.off("user-online");
-      socket.off("user-offline");
-      socket.off("online-users");
-    };
+    return () => socketRef.current.disconnect();
   }, []);
 
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   const sendMessage = () => {
-    if (!message || !toUserId) return;
+    if (!message || !selectedUserId) return ;
 
-    socket.emit("send-message", {
-      toUserId,
-      message
-    });
+    const msgData = { toUserId: selectedUserId, message, from: currentUserId };
+    socketRef.current.emit("send-message", msgData);
 
-    setMessages((prev) => [...prev, { content: message, self: true }]);
+    setMessages((prev) => [...prev, msgData]);
     setMessage("");
   };
 
-  const handleTyping = (e) => {
-    setMessage(e.target.value);
-
-    socket.emit("typing-start", { toUserId });
-
-    setTimeout(() => {
-      socket.emit("typing-stop", { toUserId });
-    }, 1000);
-  };
-
-  // 🚪 Logout
-  const handleLogout = () => {
-    localStorage.removeItem("userId");
-    localStorage.removeItem("token");
-    navigate("/login");
-  };
+  const selectedUser = allUsers.find((u) => u._id === selectedUserId);
 
   return (
-    <div>
-      <h2>Chat 💬</h2>
-      <button onClick={handleLogout} style={{ float: "right" }}>Logout</button>
+    <div className="chat-layout">
 
-      {typingUser && <p style={{ color: "gray" }}>{typingUser} is typing...</p>}
+      {/* Sidebar */}
+      <div className="sidebar">
 
-      <input
-        type="text"
-        placeholder="Receiver User ID"
-        value={toUserId}
-        onChange={(e) => setToUserId(e.target.value)}
-      />
-      <br />
+       <div className="ai-network-bg">
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+    <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
 
-      <div
-        style={{
-          border: "1px solid gray",
-          height: "200px",
-          overflowY: "auto",
-          padding: "10px"
-        }}
-      >
-        {messages.map((msg, index) => (
+</div>
+
+        <div className="sidebar-header">Messages</div>
+
+        {allUsers.map((u) => (
           <div
-            key={index}
-            style={{ textAlign: msg.self ? "right" : "left" }}
+            key={u._id}
+            className={`user-item ${selectedUserId === u._id ? "active" : ""}`}
+            onClick={() => setSelectedUserId(u._id)}
           >
-            {msg.content}
+            <div className="avatar">{u.name[0]}</div>
+            <div className="user-info">
+              <span>{u.name}</span>
+              {onlineUsers.includes(u._id) && <small>online</small>}
+            </div>
           </div>
         ))}
       </div>
 
-      <input
-        type="text"
-        placeholder="Type message..."
-        value={message}
-        onChange={handleTyping}
-      />
-      <button onClick={sendMessage}>Send</button>
+      {/* Chat Area */}
+      <div className="chat-area">
 
-      <h3>🟢 Online Users</h3>
-      <ul>
-        {onlineUsers
-          .filter((u) => u !== localStorage.getItem("userId")) // ✅ exclude self
-          .map((u) => (
-            <li key={u}>{u}</li>
-          ))}
-      </ul>
+        {!selectedUser ? (
+          <div className="empty-chat">
+            Select a friend to start chatting 💬
+          </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div className="chat-header">
+              <div className="chat-header-left">
+                <div className="avatar">{selectedUser.name[0]}</div>
+                <div className="chat-user-info">
+                  <h4>{selectedUser.name}</h4>
+                  <span
+                    className={`status ${
+                      onlineUsers.includes(selectedUser._id)
+                        ? "online"
+                        : "offline"
+                    }`}
+                  >
+                    {onlineUsers.includes(selectedUser._id)
+                      ? "online"
+                      : "offline"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="messages">
+
+              {/* Chat background icons */}
+              <div className="chat-bg-icons">
+                <span>💬</span>
+                <span>📞</span>
+                <span>🎥</span>
+                <span>😊</span>
+                <span>🤖</span>
+                <span>❤️</span>
+              </div>
+
+              {messages
+                .filter(
+                  (m) =>
+                    (m.from === currentUserId &&
+                      m.toUserId === selectedUserId) ||
+                    (m.from === selectedUserId &&
+                      m.toUserId === currentUserId)
+                )
+                .map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`msg ${
+                      msg.from === currentUserId ? "sent" : "received"
+                    }`}
+                  >
+                    {msg.message}
+                  </div>
+                ))}
+              <div ref={scrollRef} />
+            </div>
+
+            {/* Input */}
+            <div className="chat-input">
+              <input
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Type a message..."
+              />
+              <button onClick={sendMessage}>Send</button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

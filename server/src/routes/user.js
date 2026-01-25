@@ -6,7 +6,8 @@ const router = express.Router();
 
 router.get("/", authmiddleware, async (req, res) => {
   try {
-    const users = await User.find({ _id: { $ne: req.user.id } })
+    // Removed the filter that excludes the current user
+    const users = await User.find({})
       .select("_id name email status");
 
     res.json(users);
