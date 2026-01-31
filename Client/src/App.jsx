@@ -1,27 +1,19 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import Chat from "./pages/Chat";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
+import React from 'react'
+import { Route, Routes } from 'react-router-dom'
+import Homepage from './pages/homepage'
+import Loginpage from './pages/Loginpage'
+import Profilepage from './pages/Profilepage'
 
 function App() {
-  const userId = localStorage.getItem("token");
-
   return (
-    <Router>
+    <div className="bg-[url('./src/assets/bgimage.svg')] bg-contain bg-black bg-no-repeat bg-center">
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route
-          path="/chat"
-          element={userId ? <Chat /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/"
-          element={<Navigate to={userId ? "/chat" : "/login"} replace />}
-        />
+          <Route path='/' element={<Homepage/>}/>
+          <Route path='/login' element={<Loginpage/>}/>
+          <Route path='/Profile' element={<Profilepage/>}/>
       </Routes>
-    </Router>
-  );
+    </div>
+  )
 }
 
-export default App;
+export default App

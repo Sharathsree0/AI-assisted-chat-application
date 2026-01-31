@@ -1,84 +1,48 @@
-import app from "./src/app.js";
-import http from "http";
-import { Server, Socket } from "socket.io";
-import Message from "./src/models/message.js";
+import express from "express";
+import morgan from "morgan";
+import "dotenv/config"
+import http from "http"
+import cors from "cors"
+import { Server } from "socket.io";
+import { connectDB } from "./src/lib/db.js";
+import userRouter from "./src/routes/userRoutes.js";
+import messageRouter from "./src/routes/messageRoutes.js";
+import { Socket } from "socket.io-client";
 
-const PORT = process.env.PORT || 5000;
+const app =express()
+const PORT =process.env.PORT || 5000
+const server = http.createServer(app)
 
-const server= http.createServer(app)
+//socket.io to server
+export const io = new Server(server,{
+  cors:{origin:"*"}
+})
+//online by using socketId as userID
+export const userSocketMap={}; 
+//connecting socket handler
+io.on("connection",(socket)=>{
+  const userId= socket.handshake.query.userId;
+  console.log("user connected",userId);
+  if(userId) userSocketMap[userId]=Socket.id;
 
-const io = new Server(server,{
-  cors:{
-    origin:"http://localhost:5173",
-    methods:["GET","POST","PUT","DELETE"]
-  }
-});
-const onlineUsers = new Map();
-io.on("connection", (socket) => {
+  // showing online users
+io.emit("getOnlineUsers",Object.keys(userSocketMap))
+  socket.on("disconnect",()=>{
+  console.log("user disconnected",userId);
+  delete userSocketMap[userId];
+  io.emit("getOnlineUsers",Object.keys(userSocketMap))
+})
+})
 
-  socket.on("send-message", async ({  toUserId, message }) => {
-  try{
-    const fromUserId =socket.handshake.auth.userId;
-      const newMessage = await Message.create({
-      from: fromUserId,
-      to: toUserId,
-      content: message
-    });
+app.use(express.json({limit:"4mb"}));
+app.use(cors());
+app.use(morgan("dev"))
+await connectDB()
 
-    const targetSocketId = onlineUsers.get(toUserId);
+app.use("/api/auth",userRouter)
+app.use("/api/messages",messageRouter)
+app.get("/api/status",(req,res)=>{
+  res.send("its working")
+})
 
-    if (targetSocketId) {
-
-      newMessage.status="delivered"
-      await newMessage.save();
-      io.to(targetSocketId).emit("receive-message", {
-        _id: newMessage._id,
-        fromUserId,
-        content: newMessage.content,
-        status:newMessage.status,
-        createdAt: newMessage.createdAt
-      });
-    }
-  }  catch(error){
-    console.error("send message error",error.message)
-  }
-});
-
-
-  const userId = socket.handshake.auth.userId;
-  if (userId) {
-    onlineUsers.set(userId, socket.id);
-    socket.broadcast.emit("user-online", userId);
-    console.log("🟢 online:", userId);
-  }
-
-  socket.on("typing-start", ({ fromUserId, toUserId }) => {
-    const targetSocketId = onlineUsers.get(toUserId);
-    console.log("SERVER typing-start", fromUserId, "→", toUserId);
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("typing-start", fromUserId);
-    }
-  });
-
-  socket.on("typing-stop", ({ fromUserId, toUserId }) => {
-    const targetSocketId = onlineUsers.get(toUserId);
-    console.log("SERVER typing-stop", fromUserId, "→", toUserId);
-
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("typing-stop", fromUserId);
-    }
-  });
-
-  socket.on("disconnect", () => {
-    if (userId) {
-      onlineUsers.delete(userId);
-      socket.broadcast.emit("user-offline", userId);
-      console.log("🔴 offline:", userId);
-    }
-  });
-});
-
-
-server.listen(PORT,()=>{
-  console.log(`Server is running on port ${PORT}`)
-});
+server.listen(PORT,()=> console.log(`Running in http://localhost:${PORT}/`))
