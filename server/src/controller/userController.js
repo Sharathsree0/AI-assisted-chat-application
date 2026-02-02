@@ -13,7 +13,7 @@ try{
     }
     const existingUser= await User.findOne({email})
     if(existingUser){
-        return res.json({success:false,message:"User already exists"})
+return res.status(400).json({success:false,message:"User already exists"})
     }
     const salt = await bcrypt.genSalt(10)
     const hashedPassword = await bcrypt.hash(password,salt)
@@ -21,7 +21,7 @@ try{
         fullName,email,password:hashedPassword, bio
     })
     const token= generateToken(newUser._id)
-    res.json({success:true,userdate:newUser,token,message:"Account created successfully"})
+    res.json({success:true,userData:newUser,token,message:"Account created successfully"})
 }catch(error){
     console.log(error.message)
     res.json({success:false,message:error.message})
@@ -40,7 +40,7 @@ export const login =async(req,res)=>{
             res.json({success:false,message:"Invalid credentials"})
         }
         const token= generateToken(userData._id)
-            res.json({success:true,userdate:userData,token,message:"Login successfully"})
+            res.json({success:true,userData:userData,token,message:"Login successfully"})
     }catch(error){
         console.log(error.message)
         res.json({success:false,message:error.message})
@@ -56,6 +56,7 @@ export const checkingAuth= (req,res)=>{
 
 export const updateProfile=async(req,res)=>{
     try{
+          console.log("PROFILE CONTROLLER HIT");
         const {fullName,bio,profilePic}=req.body;
         const userId=req.user._id;
         let updatedUser;
@@ -67,6 +68,7 @@ export const updateProfile=async(req,res)=>{
             updatedUser = await User.findByIdAndUpdate(userId,{profilePic:upload.secure_url,bio,fullName},{new:true})
         }
         res.json({success:true,user:updatedUser})
+
     }catch(error){
         console.log(error.message)
         res.json({success:false,message:error.message})

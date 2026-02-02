@@ -7,7 +7,6 @@ import { Server } from "socket.io";
 import { connectDB } from "./src/lib/db.js";
 import userRouter from "./src/routes/userRoutes.js";
 import messageRouter from "./src/routes/messageRoutes.js";
-import { Socket } from "socket.io-client";
 
 const app =express()
 const PORT =process.env.PORT || 5000
@@ -23,7 +22,7 @@ export const userSocketMap={};
 io.on("connection",(socket)=>{
   const userId= socket.handshake.query.userId;
   console.log("user connected",userId);
-  if(userId) userSocketMap[userId]=Socket.id;
+  if(userId) userSocketMap[userId]=socket.id;
 
   // showing online users
 io.emit("getOnlineUsers",Object.keys(userSocketMap))

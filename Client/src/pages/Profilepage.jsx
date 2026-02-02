@@ -1,16 +1,32 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import assets from '../assets/assets';
+import { useContext } from 'react';
+import { AuthContext } from '../context/authContext';
 
 function Profilepage() {
+
+const {authUser, updateProfile}= useContext(AuthContext)
+
   const [selectedImage, setSelectedImage] = useState(null);
   const nav = useNavigate();
-  const [name, setName] = useState("Enter Name");
-  const [bio, setBio] = useState("Hi there ......");
+  const [name, setName] = useState(authUser.fullName || "");
+  const [bio, setBio] = useState(authUser.bio || "" );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if(!selectedImage){
+    await updateProfile({ fullName:name,bio});
     nav('/');
+    return;   
+    }
+    const render = new FileReader();
+    render.readAsDataURL(selectedImage);
+    render.onload=async ()=>{
+      const base64Image =render.result; 
+      await updateProfile({profilePic:base64Image, fullName:name, bio})
+      nav('/')
+    }
   }
 
   return (
@@ -63,8 +79,8 @@ function Profilepage() {
         </form>
 
         <img
-          className='w-35 h-25 aspect-square mx-10 max-sm:mt-10'
-          src={assets.logo_icon}
+          className={`w-36 h-36 aspect-square mx-10 max-sm:mt-10 rounded-full border border-gray-500/40 ${selectedImage && 'rounded-full'}`}
+          src={authUser?.profilePic || assets.logo_icon}
           alt="logo"
         />
       </div>

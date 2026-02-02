@@ -1,16 +1,16 @@
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 import cloudinary from "../lib/cloudinary.js";
-
+import { io,userSocketMap } from "../../server.js";
 // making to appear all users in the slidebar
 export const getAllUsers=async(req,res)=>{
  try{
-    const userId= userId._id;
+    const userId= req.user._id;
     const filteredUsers=await User.find({_id:{$ne: userId}}).select("-password");
     //now unseen
     const unSeenMessages={}
     const promises= filteredUsers.map(async(user)=>{
-        const message= Message.find({sendrId:user._id,reciverId:userId},{seen:false})
+        const message= await Message.find({senderId:user._id,receiverId:userId,seen:false})
         if(message.length>0){
             unSeenMessages[user._id]=message.length;
         }
@@ -27,18 +27,18 @@ export const getAllUsers=async(req,res)=>{
 
 export const getMessage =async(req,res)=>{
  try{
-    const {id:selectedUserId}=req.body
+    const selectedUserId=req.params.id
     const myId= req.user._id
 
     const message = await Message.find({
         $or:[
-            {senderID:myId,reciverId:selectedUserId},
-            {senderID:selectedUserId,reciverId:myId}
+            {senderId:myId,receiverId:selectedUserId},
+            {senderId:selectedUserId,receiverId:myId}
         ]
     })
-    await Message.updateMany({senderID:selectedUserId,reciverId:myId},{seen:true})
+    await Message.updateMany({senderId:selectedUserId,receiverId:myId},{seen:true})
 
-    res.json({success:true,message})
+    res.json({success:true,messages:message})
  }catch(error){
     console.log(error.message);
     res.json({success:false,message:error.message})
@@ -49,7 +49,7 @@ export const getMessage =async(req,res)=>{
 
 export const markMessageSeen =async(req,res)=>{
  try{
-    const {id}= req.body
+    const id= req.params.id;
     await Message.findByIdAndUpdate(id,{seen:true})
     res.json({success:true})
     
@@ -74,6 +74,12 @@ export const sendMessage =async(req,res)=>{
     const newMessage= await Message.create({
         senderId,receiverId,text,image:imageUrl
     })
+    //socket
+   const reciverSocketId= userSocketMap[receiverId]
+   if(reciverSocketId){
+      io.to(reciverSocketId).emit("newMessage",newMessage)
+   }
+
     res.json({success:true,newMessage})
     
  }catch(error){

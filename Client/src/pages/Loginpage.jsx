@@ -1,6 +1,8 @@
-import React from 'react'
 import assets from '../assets/assets'
 import { useState } from 'react'
+import { useContext } from 'react'
+import { AuthContext } from '../context/authContext'
+import { useNavigate } from 'react-router-dom'
 
 function Loginpage() {
     const [currentState,setCurrentState]= useState("Sign up")
@@ -9,13 +11,20 @@ function Loginpage() {
     const [password,setPassword ]= useState("")
     const [bio,setBio ]= useState("")
     const [isSubmitted,setIsSubmitted ]= useState(false)
-    
-const onSubmitHandler=(e)=>{
+    const navigate = useNavigate();
+
+    const {login} =useContext(AuthContext)
+const onSubmitHandler=async(e)=>{
     e.preventDefault();
 
     if(currentState === "Sign up" && !isSubmitted){
-        setIsSubmitted(true);
+        setIsSubmitted(true)
+        return;
     }
+    const success= await login(currentState==="Sign up" ? 'signup':'login',{fullName,email,password,bio})
+    if(success){
+     navigate("/");
+  }
 }
 
   return (
