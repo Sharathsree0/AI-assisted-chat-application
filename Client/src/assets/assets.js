@@ -21,8 +21,18 @@ import pic3 from './pic3.png'
 import pic4 from './pic4.png'
 import img1 from './img1.jpg'
 import img2 from './img2.jpg'
+import AI_logo from "./AI_logo.png"
+import Vide_call from "./icons8-video-call-50.png"
+import Audio_call from "./icons8-call-50.png"
+import Voice_recoder from "./icons8-voice-recorder-64.png"
+
+
 const assets = {
     avatar_icon,
+    Audio_call ,
+    Voice_recoder,
+    Vide_call,
+    AI_logo,
     gallery_icon,
     help_icon,
     logo_big,

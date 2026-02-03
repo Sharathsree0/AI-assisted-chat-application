@@ -15,6 +15,9 @@ const Chatcontainer = () => {
     const scrollEnd = useRef()
     const[input,setInput]=useState("")
 
+    const [ai,setAi]=useState("")
+    const [showMenu,setShowMenu]=useState(false)
+
     const handleSendMessage= async(e)=>{
         e.preventDefault();
         if(input.trim()==="") return null;
@@ -49,20 +52,19 @@ useEffect(()=>{
     return selectedUser ? (
         <div className='h-full overflow-scroll relative backdrop-blur-lg'>
             {/* Header */}
-            <div className='flex items-center gap-3 py-3 mx-4 border-b border-stone-500'>
+            <div className='flex items-center gap-8 py-3 mx-4 border-b border-stone-500'>
                 <img src={selectedUser.profilePic || assets.avatar_icon} alt="" className='w-8 rounded-full' />
                 <p className='flex-1 text-lg text-white flex items-center gap-2'>
                     {selectedUser.fullName}
                     {onlineUser.includes(selectedUser._id) &&
                     <span className="w-2 h-2 rounded-full bg-green-500"></span>}
                 </p>
-                <img
-                    onClick={() => setSelectedUser(null)}
-                    src={assets.arrow_icon}
-                    alt=""
-                    className='md:hidden max-w-7'
-                />
-                <img src={assets.help_icon} alt="" className='max-md:hidden max-w-5' />
+               
+                <img onClick={() => setSelectedUser(null)}
+                    src={assets.arrow_icon} alt="" className='md:hidden max-w-7 cursor-pointer' />
+                <img src={assets.Audio_call} alt="" className='max-md:hidden max-w-5 cursor-wait' />
+                <img src={assets.Vide_call} alt="" className='max-md:hidden max-w-5 cursor-wait ' />
+                <img src={assets.help_icon} alt="" className='max-md:hidden max-w-5 cursor-wait' />
             </div>
 
             {/* Messages */}
@@ -100,14 +102,37 @@ useEffect(()=>{
                 </div>
             </div>
             <div className='absolute bottom-0 left-0 right-0 flex items-center gap-3 p-3'>
-                <div className='flex-1 flex items-center bg-gray-100/12 px-3 rounded-full'>
+                <div className='flex-1 flex items-center bg-gray-100/12 px-3 rounded-full overflow-visible'>
                     <input onChange={(e)=>setInput(e.target.value)} value={input}
                     onKeyDown={(e)=>e.key==="Enter"? handleSendMessage(e): null}
                     type="text" placeholder="Send a message"
                     className='flex-1 text-sm p-3 border-none rounded-lg outline-none text-white placeholder-gray-400'/>
-                    <input onChange={handleSendImage} type="file" id='image' accept='image/png, image/jpeg' hidden />
-                    <label htmlFor="image">
-                        <img src={assets.gallery_icon} alt="" className="w-5 mr-2 cursor-pointer" />
+                    <div className='relatrelative group'>
+                        <img src={assets.Voice_recoder} className='w-5 mr-2  cursor-wait' />
+                        <span className=" absolute bottom-15  right-13 -translate-x-1/2 bg-white/10 backdrop-blur-md text-white text-xs px-3 py-1 
+                        rounded-md shadow-lg border border-white/20 opacity-0 group-hover:opacity-100 transition duration-200 delay-300 pointer-events-none z-50 "> 
+                        Voice recoder</span>
+                    </div>
+                    <div className='relatrelative group '>
+                    <img src={assets.AI_logo} onClick={()=>setShowMenu(!showMenu)}className='w-5 mr-2 '  />
+                        <span className=" absolute bottom-15  right-10 -translate-x-1/2 bg-white/10 backdrop-blur-md text-white text-xs px-3 py-1 
+                        rounded-md shadow-lg border border-white/20 opacity-0 group-hover:opacity-100 transition duration-200 delay-300 pointer-events-none z-50 "> 
+                        AI Feature</span>
+                    </div>
+                    {showMenu && (
+  <div className=" absolute bottom-14 right-0  bg-white/10 backdrop-blur-md border border-white/20  rounded-lg shadow-lg text-sm text-white p-3 w-40 z-50">
+    <p className="cursor-pointer hover:text-violet-400" onClick={() => console.log('Rephrase')}>
+      ✨ Rephrasing
+    </p>
+    <p className="cursor-pointer hover:text-violet-400 mt-2"  onClick={() => console.log('Auto Correct')}>
+      🪄 Auto Correct
+    </p>
+  </div>
+)}
+
+                    <label htmlFor="image" className='p-2 '>
+                        <input onChange={handleSendImage} type="file" id="image" accept="image/png, image/jpeg"  hidden/>
+                        <img src={assets.gallery_icon} alt="" className="w-4.5 mr-2 cursor-pointer" />
                     </label>
                 </div>
                 <img onClick={(handleSendMessage)} src={assets.send_button} alt="" className="w-7 cursor-pointer" />
