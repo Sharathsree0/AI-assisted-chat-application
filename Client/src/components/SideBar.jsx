@@ -68,7 +68,6 @@ const SideBar = () => {
                 <span className='text-neutral-400 text-xs'>Offline</span>
               )}
             </div>
-
             {UnseenMessages?.[user._id] > 0 && <p className='absolute top-4 right-4 text-xs'>{UnseenMessages[user._id]}</p>}
           </div>
         ))}

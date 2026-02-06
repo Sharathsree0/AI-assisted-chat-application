@@ -8,15 +8,15 @@ export const getAllUsers=async(req,res)=>{
     const userId= req.user._id;
     const filteredUsers=await User.find({_id:{$ne: userId}}).select("-password");
     //now unseen
-    const unSeenMessages={}
+    const UnSeenMessages={}
     const promises= filteredUsers.map(async(user)=>{
         const message= await Message.find({senderId:user._id,receiverId:userId,seen:false})
         if(message.length>0){
-            unSeenMessages[user._id]=message.length;
+            UnSeenMessages[user._id]=message.length;
         }
     })
     await Promise.all(promises);
-    res.json({success:true, users:filteredUsers,unSeenMessages})
+    res.json({success:true, users:filteredUsers,UnSeenMessages})
  }catch(error){
     console.log(error.message);
     res.json({success:false,message:error.message})
@@ -36,8 +36,11 @@ export const getMessage =async(req,res)=>{
             {senderId:selectedUserId,receiverId:myId}
         ]
     })
-    await Message.updateMany({senderId:selectedUserId,receiverId:myId},{seen:true})
-
+    await Message.updateMany({senderId:selectedUserId,receiverId:myId,seen:false},{seen:true,status:"seen"})
+    const otherUserSocketId=userSocketMap[selectedUserId];
+    if(otherUserSocketId){
+      io.to(otherUserSocketId).emit("messagesSeen",{receiverId:myId,status:"seen"})
+    }
     res.json({success:true,messages:message})
  }catch(error){
     console.log(error.message);
@@ -50,7 +53,7 @@ export const getMessage =async(req,res)=>{
 export const markMessageSeen =async(req,res)=>{
  try{
     const id= req.params.id;
-    await Message.findByIdAndUpdate(id,{seen:true})
+    await Message.findByIdAndUpdate(id,{seen:true,status:"seen"})
     res.json({success:true})
     
  }catch(error){
@@ -72,12 +75,17 @@ export const sendMessage =async(req,res)=>{
         imageUrl = uploadingResponse.secure_url;
     }
     const newMessage= await Message.create({
-        senderId,receiverId,text,image:imageUrl
+        senderId,receiverId,text,image:imageUrl,status:"sent"
     })
     //socket
    const reciverSocketId= userSocketMap[receiverId]
    if(reciverSocketId){
       io.to(reciverSocketId).emit("newMessage",newMessage)
+      newMessage.status="delivered";
+      await newMessage.save();
+      io.to(userSocketMap[senderId]).emit("messageStatusUpdate",{
+         messageId:newMessage._id,status:"delivered"
+      })
    }
 
     res.json({success:true,newMessage})

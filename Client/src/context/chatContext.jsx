@@ -5,90 +5,131 @@ import { AuthContext } from "./authContext";
 import toast from "react-hot-toast";
 import { useEffect } from "react";
 
+export const ChatContext = createContext();
 
-export const ChatContext = createContext ();
+export const ChatProvider = ({ children }) => {
 
-export const ChatProvider = ({children})=>{
+    const [messages, setMessages] = useState([])
+    const [isTyping, setIsTyping] = useState(false);
+    const [users, setUsers] = useState([])
+    const [selectedUser, setSelectedUser] = useState(null)
+    const [UnseenMessages, setUnSeenMessages] = useState({})
 
-    const [messages,setMessages]=useState([])
-    const [users,setUsers]=useState([])
-    const [selectedUser,setSelectedUser]=useState(null)
-    const [UnseenMessages,setUnSeenMessages]=useState({})
+    const { socket, axios, authUser } = useContext(AuthContext)
 
-    const {socket, axios} =useContext(AuthContext)
     //get all user in sidebar
-    const getUsers=async ()=>{
-        try{
-           const {data} = await axios.get("/api/messages/users")
-           if(data.success){
-            setUsers(data.users);
-            setUnSeenMessages(data.UnseenMessages);
-           }
-        }catch(error){
-            toast.error(error.message)
-        }
-    }
-    //selected users fun
-    const getMessages= async(userId)=>{
-        try{
-            const {data}= await axios.get(`/api/messages/${userId}`)
-            if(data.success){
-                setMessages(data.messages)
-
+    const getUsers = async () => {
+        try {
+            const { data } = await axios.get("/api/messages/users")
+            if (data.success) {
+                setUsers(data.users);
+                setUnSeenMessages(data.UnseenMessages || {});
             }
-        }catch(error){
+        } catch (error) {
             toast.error(error.message)
         }
     }
+
+    //selected users fun
+    const getMessages = async (userId) => {
+        try {
+            const { data } = await axios.get(`/api/messages/${userId}`)
+            if (data.success) {
+                setMessages(data.messages || []);
+
+                // clear unseen when opening chat
+                setUnSeenMessages(prev => ({
+                    ...prev,
+                    [userId]: 0
+                }))
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
+    }
+
     // send mess to induvidual user
-    const sendMessage=async(messageData)=>{
-        try{
-            const {data} = await axios.post(`/api/messages/send/${selectedUser._id}`,messageData)
-            if(data.success){
-                setMessages((preMessages)=>[...preMessages,data.newMessage])
-            }else{
+    const sendMessage = async (messageData) => {
+        try {
+            const { data } = await axios.post(`/api/messages/send/${selectedUser._id}`, messageData)
+            if (data.success) {
+                setMessages((preMessages) => [...preMessages, data.newMessage])
+            } else {
                 toast.error(data.message)
             }
-        }catch(error){
+        } catch (error) {
             toast.error(error.message)
         }
     }
-    //realtime mess from selected user
-    useEffect(() => {
-  if (!socket) return;
 
-  const handler = (newMessage) => {
-    if (selectedUser && newMessage.senderId === selectedUser._id) {
-      setMessages(prev => [...prev, newMessage]);
-      axios.put(`/api/messages/mark/${newMessage._id}`);
-    } else {
-      setUnSeenMessages(prev => {
-  const safePrev = prev || {};   // fallback
+useEffect(() => {
+    if (!socket) return;
 
-  return {
-    ...safePrev,
-    [newMessage.senderId]: (safePrev[newMessage.senderId] || 0) + 1
-  };
-});
+    const handler = (newMessage) => {
+        // safety — only if message is for me
+        if (newMessage.receiverId !== authUser?._id) return;
 
+        if (selectedUser && newMessage.senderId === selectedUser._id) {
+            setMessages(prev => [...prev, newMessage]);
+            axios.put(`/api/messages/mark/${newMessage._id}`);
+            socket.emit("seenMessage",{senderId:newMessage.senderId})
+        } else {
+            setUnSeenMessages(prev => ({
+                ...(prev || {}),
+                [newMessage.senderId]: ((prev || {})[newMessage.senderId] || 0) + 1
+            }));
+        }
+    };
+
+    const statusHandler = ({ messageId, status }) => {
+        setMessages(prev =>
+            prev.map(m =>
+                m._id === messageId ? { ...m, status } : m
+            )
+        );
+    };
+const seenHandler = ({ receiverId }) => {
+  if (!selectedUser) return;
+  setMessages(prev =>
+    prev.map(m =>
+      m.senderId === authUser._id &&
+      m.receiverId === receiverId
+        ? { ...m, status: "seen" }
+        : m
+    )
+  );
+};
+
+    socket.off("newMessage");
+    socket.off("messagesSeen");
+    socket.off("typing");
+    socket.off("stop typing");
+    socket.off("messageStatusUpdate");
+
+    socket.on("newMessage", handler);
+    socket.on("messagesSeen", seenHandler);
+    socket.on("typing", () => setIsTyping(true));
+    socket.on("stop typing", () => setIsTyping(false));
+    socket.on("messageStatusUpdate", statusHandler);
+
+    return () => {
+        socket.off("newMessage", handler);
+        socket.off("messagesSeen", seenHandler);
+        socket.off("typing");
+        socket.off("stop typing");
+        socket.off("messageStatusUpdate", statusHandler);
+    };
+
+}, [socket, selectedUser, authUser]);
+
+    const value = {
+        messages, users, selectedUser, getUsers, getMessages, sendMessage, setSelectedUser,
+        UnseenMessages, setUnSeenMessages, isTyping
     }
-  };
 
-  socket.on("newMessage", handler);
-
-  return () => {
-    socket.off("newMessage", handler);
-  };
-
-}, [socket, selectedUser]);
-
-
-    const value ={
-        messages,users,selectedUser,getUsers,getMessages,sendMessage,setSelectedUser,
-        UnseenMessages,setUnSeenMessages
-    }
-    return(
-    <ChatContext.Provider value={value}>
+    return (
+        <ChatContext.Provider value={value}>
             {children}
-    </ChatContext.Provider>
-)}
+        </ChatContext.Provider>
+    )
+}
