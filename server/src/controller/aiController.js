@@ -7,7 +7,7 @@ export const rephraseText = async(req,res)=>{
         const{text}=req.body;
         const model= genAi.getGenerativeModel({
             model:"gemini-2.5-flash",
-            systemInstruction:"You are a professional writer.Rewrite the user's sentence in a clearer, more natural and engaging way.Keep the same meaning but change the structure and wording.Return ONLY the rephrased sentence." })
+            systemInstruction:"You are a professional writer. Rewrite the user’s sentence to be clearer, more natural, and more engaging while preserving the original meaning. Improve the structure and wording, correct all spelling and grammatical errors, and return **only** the rephrased sentence." })
         const responding = await model.generateContent(text)
         const result = responding.response.text();
         res.json({success:true,result})

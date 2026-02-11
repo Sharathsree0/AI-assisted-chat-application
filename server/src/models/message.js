@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import User from "../models/User.js";
+import { text } from "express";
 
 const messageSchema= new mongoose.Schema({
     senderId:{type:mongoose.Schema.Types.ObjectId,ref:User,required:true},
@@ -11,7 +12,34 @@ const messageSchema= new mongoose.Schema({
         type:String,
         enum:["sent","delivered","seen"],
         default:"sent"
+    },
+    isDeleted:{
+        type:Boolean,
+        default:false
+    },
+    editedAt:{
+        type:Date,
+        default:null
+    },
+    editHistory:[
+    {
+        text:String,
+        editedAt:Date
     }
+],
+    reactions:[
+       { 
+        userId:{
+            type:mongoose.Schema.Types.ObjectId,
+            ref:"User",
+            required:true
+        },
+        emoji:{
+            type:String,
+            required:true
+        }
+    }
+    ]
 },{
     timestamps:true
 });

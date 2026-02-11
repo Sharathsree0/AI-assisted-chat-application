@@ -38,6 +38,7 @@ io.on("connection",(socket)=>{
       io.to(reciverSocketId).emit("stop typing")
     }
   })
+  //message seen 
   socket.on("seenMessage", ({ senderId }) => {
   const senderSocketId = userSocketMap[senderId];
   if (senderSocketId) {

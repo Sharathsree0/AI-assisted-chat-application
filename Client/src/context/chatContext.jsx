@@ -99,7 +99,13 @@ const seenHandler = ({ receiverId }) => {
     )
   );
 };
-
+socket.on("messageReactionUpdate",({messageId,reactions})=>{
+      console.log("REACTION SOCKET EVENT:", messageId, reactions);
+    setMessages((preMessages)=>preMessages.map((msg)=>msg._id === messageId
+    ? {...msg,reactions}
+    :msg
+))
+});
     socket.off("newMessage");
     socket.off("messagesSeen");
     socket.off("typing");
@@ -118,13 +124,14 @@ const seenHandler = ({ receiverId }) => {
         socket.off("typing");
         socket.off("stop typing");
         socket.off("messageStatusUpdate", statusHandler);
+        socket.off("messageReactionUpdate")
     };
 
 }, [socket, selectedUser, authUser]);
 
     const value = {
         messages, users, selectedUser, getUsers, getMessages, sendMessage, setSelectedUser,
-        UnseenMessages, setUnSeenMessages, isTyping
+        UnseenMessages, setUnSeenMessages, isTyping,setMessages
     }
 
     return (
