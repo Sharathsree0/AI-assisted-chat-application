@@ -20,8 +20,8 @@ return res.status(400).json({success:false,message:"User already exists"})
     const newUser= await User.create({
         fullName,email,password:hashedPassword, bio
     })
-    const token= generateToken(newUser._id)
-    res.json({success:true,userData:newUser,token,message:"Account created successfully"})
+        res.cookie("token",token,{httpOnly:true,secure:true,sameSite: "none", maxAge: 7 * 24 * 60 * 60 * 1000})
+        res.json({success:true,userData:userData,message:"Login successfully"})
 }catch(error){
     console.log(error.message)
     res.json({success:false,message:error.message})
@@ -40,7 +40,8 @@ export const login =async(req,res)=>{
             res.json({success:false,message:"Invalid credentials"})
         }
         const token= generateToken(userData._id)
-            res.json({success:true,userData:userData,token,message:"Login successfully"})
+            res.cookie("token",token,{httpOnly:true,secure:true,sameSite: "none", maxAge: 7 * 24 * 60 * 60 * 1000})
+            res.json({success:true,userData:userData,message:"Login successfully"})
     }catch(error){
         console.log(error.message)
         res.json({success:false,message:error.message})

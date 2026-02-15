@@ -5,8 +5,8 @@ import { deleteMessage, editMessage, getAllUsers, getMessage, markMessageSeen, r
 const messageRouter = express.Router()
 
 messageRouter.get("/users",protectedRoute,getAllUsers)
+messageRouter.put("/mark/:id",protectedRoute,markMessageSeen)
 messageRouter.get("/:id",protectedRoute,getMessage)
-messageRouter.get("/mark/:id",protectedRoute,markMessageSeen)
 messageRouter.post("/send/:id",protectedRoute,sendMessage)
 messageRouter.post("/react/:messageId",protectedRoute,reactToMessage)
 messageRouter.put ("/edit/:messageId",protectedRoute,editMessage)

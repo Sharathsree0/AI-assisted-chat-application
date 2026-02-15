@@ -21,14 +21,23 @@ const Chatcontainer = () => {
     const [editingMsgId, setEditingMsgId] = useState(null)
     const [editText, setEditText] = useState("")
 
-    // ai states and settings
+    // ai states 
     const [oldInput, setOldInput] = useState("")
     const [showDecline, setShowDecline] = useState(false)
     const [aiLoading, setAiLoading] = useState(false)
     const [showMenu, setShowMenu] = useState(false)
 
+    // reaction, edi and dele state
     const [menuMsgId, setMenuMsgId] = useState(null)
 
+    //audio call states
+    const peerConnectionRef = useRef(null)
+    const [localStream, setLocalStream] = useState(null)
+    const [remoteStream, setRemoteStream] = useState(null)
+    const [incomingCall, setIncomingCall] = useState(null)
+    const [callAccepted, setCallAccepted] = useState(false)
+
+    //ai handlers
     const handleAiRephrase = async () => {
         if (!input.trim()) return
 
@@ -66,6 +75,96 @@ const Chatcontainer = () => {
             setAiLoading(false)
         }
     }
+    //audio call  handler 
+    const startAudioCall = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        peerConnectionRef.current = new RTCPeerConnection({
+            iceServers: [
+                { urls: "stun:stun.l.google.com:19302" }
+            ]
+        })
+        peerConnectionRef.current.ontrack = (event) => {
+            console.log("Remote stream received", event.streams)
+            setRemoteStream(event.streams[0])
+        }
+        peerConnectionRef.current.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit("iceCandidate", {
+                    receiverId: selectedUser._id,
+                    candidate: event.candidate
+                })
+            }
+        }
+        stream.getTracks().forEach(track => {
+            peerConnectionRef.current.addTrack(track, stream)
+        })
+        const offer = await peerConnectionRef.current.createOffer()
+        await peerConnectionRef.current.setLocalDescription(offer)
+        socket.emit("callUser", { receiverId: selectedUser._id, offer })
+        console.log(offer)
+        console.log(peerConnectionRef.current)
+        setLocalStream(stream)
+        console.log("calling user", selectedUser._id)
+        console.log(stream.getAudioTracks()[0].enabled)
+        console.log(stream.getAudioTracks()[0].readyState)
+
+    }
+    const acceptCall = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+        peerConnectionRef.current = new RTCPeerConnection({
+            iceServers: [
+                { urls: "stun:stun.l.google.com:19302" }
+            ]
+        })
+        peerConnectionRef.current.ontrack = (event) => {
+            console.log("Remote stream received", event.streams)
+            setRemoteStream(event.streams[0])
+        }
+        peerConnectionRef.current.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit("iceCandidate", {
+                    receiverId: incomingCall.callerId,
+                    candidate: event.candidate
+                })
+            }
+        }
+        stream.getTracks().forEach(track => {
+            peerConnectionRef.current.addTrack(track, stream)
+        })
+        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(incomingCall.offer))
+        const answer = await peerConnectionRef.current.createAnswer()
+        await peerConnectionRef.current.setLocalDescription(answer)
+        socket.emit("answerCall", {
+            callerId: incomingCall.callerId,
+            answer
+        })
+        console.log(stream.getAudioTracks()[0].enabled)
+        console.log(stream.getAudioTracks()[0].readyState)
+        console.log(answer)
+        setLocalStream(stream)
+    }
+    // now the web RTC for video call
+
+    const startVideoCall = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true, video: true
+        })
+        setLocalStream(stream)
+        peerConnectionRef.current = new RTCPeerConnection({
+            iceServers: [
+                { urls: "stun:stun.l.google.com:19302" }
+            ]
+        })
+        peerConnectionRef.current.ontrack = (event) => {
+            setRemoteStream(event.streams[0])
+        }
+        stream.getTracks().forEach(track => {
+            peerConnectionRef.current.addTrack(track, stream)
+        })
+        const offer = await peerConnectionRef.current.createOffer()
+        await peerConnectionRef.current.setLocalDescription(offer)
+        socket.emit("callUser", { receiverId: selectedUser._id, offer })
+    }
 
     // reaction send handler 
     const handleSendReaction = async (messageId, emoji) => {
@@ -74,7 +173,6 @@ const Chatcontainer = () => {
     }
 
     // sending message handler
-
     const handleSendMessage = async (e) => {
         e.preventDefault()
         if (input.trim() === "") return null
@@ -96,13 +194,6 @@ const Chatcontainer = () => {
         }
         reader.readAsDataURL(file)
     }
-
-    useEffect(() => {
-        if (selectedUser) {
-            getMessages(selectedUser._id)
-        }
-    }, [selectedUser])
-
     useEffect(() => {
         if (scrollEnd.current && messages) {
             scrollEnd.current.scrollIntoView({ behavior: "smooth" })
@@ -131,16 +222,45 @@ const Chatcontainer = () => {
             );
         };
 
+        const handleIncomingCall = (data) => {
+            console.log("incomingCall", data)
+            setIncomingCall(data)
+        }
+
+        const handleCallAnswered = async ({ answer }) => {
+            await peerConnectionRef.current.setRemoteDescription(
+                new RTCSessionDescription(answer)
+            )
+            console.log("Call fully connected")
+        }
+        socket.on("iceCandidate", async ({ candidate }) => {
+            if (peerConnectionRef.current) {
+                await peerConnectionRef.current.addIceCandidate(
+                    new RTCIceCandidate(candidate)
+                )
+            }
+        })
+        socket.on("callEnded", () => {
+            setIncomingCall(null)
+            setCallAccepted(false)
+        })
+
+        socket.on("incomingCall", handleIncomingCall)
+        socket.on("callAnswered", handleCallAnswered)
         socket.on("messageEdited", handleEdit);
         socket.on("messageDeleted", handleDelete);
 
         return () => {
+            socket.off("iceCandidate")
+
             socket.off("messageEdited", handleEdit);
             socket.off("messageDeleted", handleDelete);
+            socket.off("incomingCall", handleIncomingCall)
+            socket.off("callAnswered", handleCallAnswered)
         };
     }, [socket]);
 
-
+    
     return selectedUser ? (
         <div className='h-full overflow-scroll relative backdrop-blur-lg'>
             {/* Header */}
@@ -154,10 +274,68 @@ const Chatcontainer = () => {
 
                 <img onClick={() => setSelectedUser(null)}
                     src={assets.arrow_icon} alt="" className='md:hidden max-w-7 cursor-pointer' />
-                <img src={assets.Audio_call} alt="" className='max-md:hidden max-w-5 cursor-wait' />
-                <img src={assets.Vide_call} alt="" className='max-md:hidden max-w-5 cursor-wait ' />
+                <img onClick={startAudioCall} src={assets.Audio_call} alt="" className='max-md:hidden max-w-5 cursor-pointer' />
+                <img onClick={startVideoCall} src={assets.Vide_call} alt="" className='max-md:hidden max-w-5 cursor-pointer ' />
                 <img src={assets.help_icon} alt="" className='max-md:hidden max-w-5 cursor-wait' />
             </div>
+
+{
+        incomingCall && !callAccepted && (
+            <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-4 rounded-xl shadow-lg flex items-center gap-6 z-50 animate-slideDown">
+
+                <div>
+                    <p className="font-semibold">
+                        {selectedUser?.fullName || "Incoming Call"}
+                    </p>
+                    <p className="text-sm text-gray-400">
+                        Incoming video call...
+                    </p>
+                </div>
+
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => {
+                            setCallAccepted(true)
+                            acceptCall()
+                        }}
+                        className="bg-green-500 px-3 py-1 rounded-full text-sm"
+                    >
+                        Accept
+                    </button>
+
+                    <button
+                        onClick={() => setIncomingCall(null)}
+                        className="bg-red-500 px-3 py-1 rounded-full text-sm"
+                    >
+                        Decline
+                    </button>
+                </div>
+            </div>
+        )
+    }
+            {/**its about giving audio access to stream
+            {remoteStream && (
+                <audio
+                    autoPlay
+                    ref={(audio) => {
+                        if (audio) {
+                            audio.srcObject = remoteStream
+                        }
+                    }}
+                />
+            )}*/}
+            {localStream && (
+                <video
+                    autoPlay
+                    muted
+                    playsInline
+                    ref={(video) => {
+                        if (video) video.srcObject = localStream
+                    }}
+                    className="w-40 h-40 object-cover rounded-lg"
+                />
+            )}
+
 
             {/* Messages */}
             <div className='flex flex-col h-[calc(100%-120px)] overflow-y-scroll p-3 pb-6'>

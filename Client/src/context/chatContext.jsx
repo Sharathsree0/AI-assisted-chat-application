@@ -61,6 +61,30 @@ export const ChatProvider = ({ children }) => {
             toast.error(error.message)
         }
     }
+    useEffect(() => {
+   if (selectedUser) {
+      getMessages(selectedUser._id)
+   }
+}, [selectedUser])
+
+useEffect(() => {
+   if (!authUser) {
+      setSelectedUser(null)
+      setMessages([])
+   }
+}, [authUser])
+
+useEffect(() => {
+   const savedId = localStorage.getItem("selectedUserId")
+
+   if (savedId && users.length > 0) {
+      const matchedUser = users.find(user => user._id === savedId)
+
+      if (matchedUser) {
+         setSelectedUser(matchedUser)
+      }
+   }
+}, [users])
 
 useEffect(() => {
     if (!socket) return;
@@ -89,16 +113,18 @@ useEffect(() => {
         );
     };
 const seenHandler = ({ receiverId }) => {
-  if (!selectedUser) return;
+  console.log("LIVE SEEN EVENT:", receiverId)
+
   setMessages(prev =>
     prev.map(m =>
-      m.senderId === authUser._id &&
-      m.receiverId === receiverId
+      m.senderId?.toString() === authUser._id?.toString() &&
+      m.receiverId?.toString() === receiverId?.toString()
         ? { ...m, status: "seen" }
         : m
     )
   );
 };
+
 socket.on("messageReactionUpdate",({messageId,reactions})=>{
       console.log("REACTION SOCKET EVENT:", messageId, reactions);
     setMessages((preMessages)=>preMessages.map((msg)=>msg._id === messageId

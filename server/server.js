@@ -3,6 +3,7 @@ import morgan from "morgan";
 import "dotenv/config"
 import http from "http"
 import cors from "cors"
+import cookieParser from "cookie-parser"
 import { Server } from "socket.io";
 import { connectDB } from "./src/lib/db.js";
 import userRouter from "./src/routes/userRoutes.js";
@@ -16,13 +17,18 @@ const server = http.createServer(app)
 //socket.io to server
 export const io = new Server(server,{
   pingTimeout:60000,
-  cors:{origin:"*"}
+  cors:{
+    origin:process.env.CLIENT_URL,
+    credentials:true
+  }
 })
+
 //online by using socketId as userID
 export const userSocketMap={}; 
 //connecting socket handler
 io.on("connection",(socket)=>{
   const userId= socket.handshake.query.userId;
+  socket.userId = userId;
   console.log("user connected",userId);
   if(userId) userSocketMap[userId]=socket.id;
   //typing listener
@@ -52,11 +58,33 @@ io.emit("getOnlineUsers",Object.keys(userSocketMap))
   console.log("user disconnected",userId);
   delete userSocketMap[userId];
   io.emit("getOnlineUsers",Object.keys(userSocketMap))
+  io.emit("callEnded", { userId: userId })
+})
+
+  //audio call invocking
+socket.on("callUser",({receiverId,offer})=>{
+  const reciverSocketId =userSocketMap[receiverId]
+  io.to(reciverSocketId).emit("incomingCall",{offer,callerId:socket.userId})
+})
+socket.on("answerCall", ({ callerId, answer }) => {
+   const callerSocketId = userSocketMap[callerId]
+   io.to(callerSocketId).emit("callAnswered", { answer })
+})
+socket.on("iceCandidate", ({ receiverId, candidate }) => {
+   const receiverSocketId = userSocketMap[receiverId]
+   if (receiverSocketId) {
+      io.to(receiverSocketId).emit("iceCandidate", { candidate })
+   }
 })
 })
+
 app.use(express.json({limit:"4mb"}));
-app.use(cors());
+app.use(cors({
+  origin: process.env.CLIENT_URL,
+  credentials: true
+}));
 app.use(morgan("dev"))
+app.use(cookieParser())
 await connectDB()
 
 app.use("/api/auth",userRouter)
