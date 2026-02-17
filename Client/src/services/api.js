@@ -5,7 +5,7 @@ const API = axios.create({
     withCredentials: true
 });
 
-export const fetchUsers = () => API.get("/user/all");
+export const fetchUsers = () => API.get("/messages/users");
 export const fetchMessages = (recipientId) => API.get(`/message/${recipientId}`);
 export const markAsRead = (messageId) => API.put(`/message/read/${messageId}`);
 export const editMessage = (messageId, content) => API.put(`/message/edit/${messageId}`, { content });

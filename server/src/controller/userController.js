@@ -20,25 +20,36 @@ return res.status(400).json({success:false,message:"User already exists"})
     const newUser= await User.create({
         fullName,email,password:hashedPassword, bio
     })
+    const token= generateToken(newUser._id)
         res.cookie("token",token,{httpOnly:true,secure:true,sameSite: "none", maxAge: 7 * 24 * 60 * 60 * 1000})
-        res.json({success:true,userData:userData,message:"Login successfully"})
+        res.json({success:true,userData:newUser,message:"Login successfully"})
 }catch(error){
     console.log(error.message)
     res.json({success:false,message:error.message})
 
 }};
+//logout
+export const logout = (req, res) => {
+    res.clearCookie("token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none"
+    });
 
+    res.json({ success: true, message: "Logged out successfully" });
+};
 //login
 
 export const login =async(req,res)=>{
     try{
         const {email,password}=req.body;
-        const userData= await User.findOne({email})
-        const isPasswordCorrect= await bcrypt.compare(password,userData.password)
-
-        if(!isPasswordCorrect){
-            res.json({success:false,message:"Invalid credentials"})
-        }
+        const userData = await User.findOne({ email });
+        if (!userData) {
+            return res.json({ success: false, message: "Invalid credentials" });}
+        const isPasswordCorrect = await bcrypt.compare(password, userData.password);
+        if (!isPasswordCorrect) {
+            return res.json({ success: false, message: "Invalid credentials" });
+}
         const token= generateToken(userData._id)
             res.cookie("token",token,{httpOnly:true,secure:true,sameSite: "none", maxAge: 7 * 24 * 60 * 60 * 1000})
             res.json({success:true,userData:userData,message:"Login successfully"})

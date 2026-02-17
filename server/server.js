@@ -9,7 +9,8 @@ import { connectDB } from "./src/lib/db.js";
 import userRouter from "./src/routes/userRoutes.js";
 import messageRouter from "./src/routes/messageRoutes.js";
 import aiRouter from "./src/routes/aiRoutes.js";
-
+import { getTurnCredentials } from "./src/controller/turnController.js";
+import { protectedRoute } from "./src/middleWare/auth.js";
 const app =express()
 const PORT =process.env.PORT || 5000
 const server = http.createServer(app)
@@ -56,24 +57,39 @@ io.on("connection",(socket)=>{
 io.emit("getOnlineUsers",Object.keys(userSocketMap))
   socket.on("disconnect",()=>{
   console.log("user disconnected",userId);
+    socket.broadcast.emit("callEnded");
   delete userSocketMap[userId];
   io.emit("getOnlineUsers",Object.keys(userSocketMap))
-  io.emit("callEnded", { userId: userId })
 })
 
   //audio call invocking
-socket.on("callUser",({receiverId,offer})=>{
-  const reciverSocketId =userSocketMap[receiverId]
-  io.to(reciverSocketId).emit("incomingCall",{offer,callerId:socket.userId})
+socket.on("callUser", ({ receiverId, offer, callType }) => {
+   const reciverSocketId = userSocketMap[receiverId]
+   if (reciverSocketId) {
+      io.to(reciverSocketId).emit("incomingCall", {
+    offer,
+    callerId: socket.userId,
+    callerName: socket.handshake.query.fullName,
+    callType
+})
+   }
 })
 socket.on("answerCall", ({ callerId, answer }) => {
    const callerSocketId = userSocketMap[callerId]
+if (callerSocketId) {
    io.to(callerSocketId).emit("callAnswered", { answer })
-})
+}})
 socket.on("iceCandidate", ({ receiverId, candidate }) => {
    const receiverSocketId = userSocketMap[receiverId]
    if (receiverSocketId) {
       io.to(receiverSocketId).emit("iceCandidate", { candidate })
+   }
+})
+socket.on("endCall", ({ receiverId }) => {
+   const receiverSocketId = userSocketMap[receiverId]
+
+   if (receiverSocketId) {
+      io.to(receiverSocketId).emit("callEnded")
    }
 })
 })
@@ -87,6 +103,7 @@ app.use(morgan("dev"))
 app.use(cookieParser())
 await connectDB()
 
+app.get("/api/turn", protectedRoute, getTurnCredentials);
 app.use("/api/auth",userRouter)
 app.use("/api/ai",aiRouter)
 app.use("/api/messages",messageRouter)

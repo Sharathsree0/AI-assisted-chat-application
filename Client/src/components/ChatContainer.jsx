@@ -7,11 +7,10 @@ import { ChatContext } from '../context/chatContext'
 import { AuthContext } from '../context/authContext'
 import { useState } from 'react'
 import toast from 'react-hot-toast'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, User } from "lucide-react";
 import axios from 'axios'
 
 const Chatcontainer = () => {
-    const { messages, selectedUser, setSelectedUser, sendMessage, getMessages, isTyping, setMessages } = useContext(ChatContext)
-    const { authUser, onlineUser, socket } = useContext(AuthContext)
 
     const scrollEnd = useRef()
     const [input, setInput] = useState("")
@@ -30,12 +29,328 @@ const Chatcontainer = () => {
     // reaction, edi and dele state
     const [menuMsgId, setMenuMsgId] = useState(null)
 
-    //audio call states
-    const peerConnectionRef = useRef(null)
-    const [localStream, setLocalStream] = useState(null)
-    const [remoteStream, setRemoteStream] = useState(null)
-    const [incomingCall, setIncomingCall] = useState(null)
+    //audio & video call states
+
+    const {
+        users,
+        messages,
+        selectedUser,
+        setSelectedUser,
+        sendMessage,
+        isTyping,
+        setMessages
+    } = useContext(ChatContext)
+
+    const {
+        authUser,
+        onlineUser,
+        socket
+    } = useContext(AuthContext)
+
+    // CALL STATES 
+    ;
+    const [currentCallType, setCurrentCallType] = useState(null);
+    const [incomingCall, setIncomingCall] = useState(null);
+    const [isMuted, setIsMuted] = useState(false);
+    const [isCalling, setIsCalling] = useState(false);
     const [callAccepted, setCallAccepted] = useState(false)
+    const [callEnded, setCallEnded] = useState(false)
+    const peerConnectionRef = useRef(null);
+    const callTimeoutRef = useRef(null);
+    const [localStream, setLocalStream] = useState(null);
+    const [remoteStream, setRemoteStream] = useState(null)
+    const [activeCallUser, setActiveCallUser] = useState(null);
+const localStreamRef = useRef(null);
+const remoteStreamRef = useRef(null);
+
+
+    // START AUDIO CALL
+    const startAudioCall = async () => {
+        if (!selectedUser || isCalling) return;
+
+        setIsCalling(true);
+        setCurrentCallType("audio");
+        setActiveCallUser(selectedUser);
+
+        callTimeoutRef.current = setTimeout(() => {
+            endCall();
+        }, 30000);
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setLocalStream(stream);
+    localStreamRef.current = stream;
+
+        const { data } = await axios.get("/api/turn");
+
+        const pc = new RTCPeerConnection({
+            iceServers: data.iceServers
+        });
+
+        peerConnectionRef.current = pc;
+
+        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+        pc.ontrack = (event) => {
+            setRemoteStream(event.streams[0]);
+            remoteStreamRef.current = event.streams[0];
+
+        };
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit("iceCandidate", {
+                    receiverId: selectedUser._id,
+                    candidate: event.candidate
+                });
+            }
+        };
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        socket.emit("callUser", {
+            receiverId: selectedUser._id,
+            offer,
+            callType: "audio"
+        });
+    };
+
+    //  START VIDEO CALL 
+    const startVideoCall = async () => {
+        if (!selectedUser || isCalling) return;
+
+        setIsCalling(true);
+        setCurrentCallType("video");
+        setActiveCallUser(selectedUser);
+
+        callTimeoutRef.current = setTimeout(() => {
+            endCall();
+        }, 30000);
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: true
+        });
+
+        setLocalStream(stream);
+        localStreamRef.current = stream;
+
+        const { data } = await axios.get("/api/turn");
+
+        const pc = new RTCPeerConnection({
+            iceServers: data.iceServers
+        });
+
+        peerConnectionRef.current = pc;
+
+        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+        pc.ontrack = (event) => {
+            setRemoteStream(event.streams[0]);
+            remoteStreamRef.current = event.streams[0];
+        };
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit("iceCandidate", {
+                    receiverId: selectedUser._id,
+                    candidate: event.candidate
+                });
+            }
+        };
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        socket.emit("callUser", {
+            receiverId: selectedUser._id,
+            offer,
+            callType: "video"
+        });
+    };
+
+    //  ACCEPT CALL 
+    const acceptCall = async () => {
+        if (!incomingCall) return;
+
+        setCurrentCallType(incomingCall.callType);
+
+        if (callTimeoutRef.current) {
+            clearTimeout(callTimeoutRef.current);
+            callTimeoutRef.current = null;
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: incomingCall.callType === "video"
+        });
+
+        setLocalStream(stream);
+        localStreamRef.current = stream;
+
+
+        const { data } = await axios.get("/api/turn");
+
+        const pc = new RTCPeerConnection({
+            iceServers: data.iceServers
+        });
+
+        peerConnectionRef.current = pc;
+
+        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+        pc.ontrack = (event) => {
+            setRemoteStream(event.streams[0]);
+            remoteStreamRef.current = event.streams[0];
+        };
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit("iceCandidate", {
+                    receiverId: incomingCall.callerId,
+                    candidate: event.candidate
+                });
+            }
+        };
+
+        await pc.setRemoteDescription(
+            new RTCSessionDescription(incomingCall.offer)
+        );
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        socket.emit("answerCall", {
+            callerId: incomingCall.callerId,
+            answer
+        });
+
+        setIncomingCall(null);
+        setCallAccepted(true);
+    };
+
+    // DECLINE CALL
+    const declineCall = () => {
+        if (!incomingCall) return;
+
+        socket.emit("endCall", {
+            receiverId: incomingCall.callerId
+        });
+
+        setIncomingCall(null);
+    };
+
+    //  END CALL
+const endCall = () => {
+
+    const receiverId =
+        incomingCall?.callerId ||
+        activeCallUser?._id ||
+        selectedUser?._id;
+
+    if (receiverId) {
+        console.log("Ending call with:", receiverId);
+        socket.emit("endCall", { receiverId });
+    }
+
+    cleanupCall();
+};
+
+const cleanupCall = () => {
+
+    if (callTimeoutRef.current) {
+        clearTimeout(callTimeoutRef.current);
+        callTimeoutRef.current = null;
+    }
+
+    if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+        localStreamRef.current = null;
+    }
+
+    if (remoteStreamRef.current) {
+        remoteStreamRef.current.getTracks().forEach(track => track.stop());
+        remoteStreamRef.current = null;
+    }
+
+    if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+    }
+
+    setCurrentCallType(null);
+    setIncomingCall(null);
+    setIsCalling(false);
+    setCallAccepted(false);
+    setActiveCallUser(null);
+    setLocalStream(null);
+    setRemoteStream(null);
+};
+
+
+
+    // TOGGLE MUTE 
+    const toggleMute = () => {
+        if (!localStream) return;
+
+        const audioTrack = localStream.getAudioTracks()[0];
+        if (!audioTrack) return;
+
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsMuted(!audioTrack.enabled);
+    };
+
+    // TOGGLE VIDEO
+    const toggleVideo = () => {
+        if (!localStream) return;
+
+        const videoTrack = localStream.getVideoTracks()[0];
+        if (!videoTrack) return;
+
+        videoTrack.enabled = !videoTrack.enabled;
+    };
+
+    //  SOCKET LISTENERS 
+    useEffect(() => {
+        if (!socket) return;
+
+        socket.on("incomingCall", (data) => {
+            setIncomingCall(data);
+            setActiveCallUser({
+                _id: data.callerId,
+                fullName: data.callerName,
+                profilePic: data.profilePic
+            });
+
+        });
+        socket.on("callAnswered", async ({ answer }) => {
+            await peerConnectionRef.current?.setRemoteDescription(
+                new RTCSessionDescription(answer)
+            );
+            setCallAccepted(true);
+        });
+
+        socket.on("iceCandidate", async ({ candidate }) => {
+            if (peerConnectionRef.current) {
+                await peerConnectionRef.current.addIceCandidate(
+                    new RTCIceCandidate(candidate)
+                );
+            }
+        });
+
+        socket.on("callEnded", () => {
+    console.log("CALL ENDED RECEIVED");
+    cleanupCall();
+});
+
+
+        return () => {
+            socket.off("incomingCall");
+            socket.off("callAnswered");
+            socket.off("iceCandidate");
+            socket.off("callEnded");
+        };
+    }, [socket]);
 
     //ai handlers
     const handleAiRephrase = async () => {
@@ -75,96 +390,8 @@ const Chatcontainer = () => {
             setAiLoading(false)
         }
     }
-    //audio call  handler 
-    const startAudioCall = async () => {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        peerConnectionRef.current = new RTCPeerConnection({
-            iceServers: [
-                { urls: "stun:stun.l.google.com:19302" }
-            ]
-        })
-        peerConnectionRef.current.ontrack = (event) => {
-            console.log("Remote stream received", event.streams)
-            setRemoteStream(event.streams[0])
-        }
-        peerConnectionRef.current.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit("iceCandidate", {
-                    receiverId: selectedUser._id,
-                    candidate: event.candidate
-                })
-            }
-        }
-        stream.getTracks().forEach(track => {
-            peerConnectionRef.current.addTrack(track, stream)
-        })
-        const offer = await peerConnectionRef.current.createOffer()
-        await peerConnectionRef.current.setLocalDescription(offer)
-        socket.emit("callUser", { receiverId: selectedUser._id, offer })
-        console.log(offer)
-        console.log(peerConnectionRef.current)
-        setLocalStream(stream)
-        console.log("calling user", selectedUser._id)
-        console.log(stream.getAudioTracks()[0].enabled)
-        console.log(stream.getAudioTracks()[0].readyState)
 
-    }
-    const acceptCall = async () => {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-        peerConnectionRef.current = new RTCPeerConnection({
-            iceServers: [
-                { urls: "stun:stun.l.google.com:19302" }
-            ]
-        })
-        peerConnectionRef.current.ontrack = (event) => {
-            console.log("Remote stream received", event.streams)
-            setRemoteStream(event.streams[0])
-        }
-        peerConnectionRef.current.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit("iceCandidate", {
-                    receiverId: incomingCall.callerId,
-                    candidate: event.candidate
-                })
-            }
-        }
-        stream.getTracks().forEach(track => {
-            peerConnectionRef.current.addTrack(track, stream)
-        })
-        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(incomingCall.offer))
-        const answer = await peerConnectionRef.current.createAnswer()
-        await peerConnectionRef.current.setLocalDescription(answer)
-        socket.emit("answerCall", {
-            callerId: incomingCall.callerId,
-            answer
-        })
-        console.log(stream.getAudioTracks()[0].enabled)
-        console.log(stream.getAudioTracks()[0].readyState)
-        console.log(answer)
-        setLocalStream(stream)
-    }
-    // now the web RTC for video call
 
-    const startVideoCall = async () => {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true, video: true
-        })
-        setLocalStream(stream)
-        peerConnectionRef.current = new RTCPeerConnection({
-            iceServers: [
-                { urls: "stun:stun.l.google.com:19302" }
-            ]
-        })
-        peerConnectionRef.current.ontrack = (event) => {
-            setRemoteStream(event.streams[0])
-        }
-        stream.getTracks().forEach(track => {
-            peerConnectionRef.current.addTrack(track, stream)
-        })
-        const offer = await peerConnectionRef.current.createOffer()
-        await peerConnectionRef.current.setLocalDescription(offer)
-        socket.emit("callUser", { receiverId: selectedUser._id, offer })
-    }
 
     // reaction send handler 
     const handleSendReaction = async (messageId, emoji) => {
@@ -198,7 +425,6 @@ const Chatcontainer = () => {
         if (scrollEnd.current && messages) {
             scrollEnd.current.scrollIntoView({ behavior: "smooth" })
         }
-
     }, [messages])
 
     useEffect(() => {
@@ -222,45 +448,29 @@ const Chatcontainer = () => {
             );
         };
 
-        const handleIncomingCall = (data) => {
-            console.log("incomingCall", data)
-            setIncomingCall(data)
-        }
-
-        const handleCallAnswered = async ({ answer }) => {
-            await peerConnectionRef.current.setRemoteDescription(
-                new RTCSessionDescription(answer)
-            )
-            console.log("Call fully connected")
-        }
-        socket.on("iceCandidate", async ({ candidate }) => {
-            if (peerConnectionRef.current) {
-                await peerConnectionRef.current.addIceCandidate(
-                    new RTCIceCandidate(candidate)
-                )
-            }
-        })
-        socket.on("callEnded", () => {
-            setIncomingCall(null)
-            setCallAccepted(false)
-        })
-
-        socket.on("incomingCall", handleIncomingCall)
-        socket.on("callAnswered", handleCallAnswered)
         socket.on("messageEdited", handleEdit);
         socket.on("messageDeleted", handleDelete);
 
         return () => {
-            socket.off("iceCandidate")
-
             socket.off("messageEdited", handleEdit);
             socket.off("messageDeleted", handleDelete);
-            socket.off("incomingCall", handleIncomingCall)
-            socket.off("callAnswered", handleCallAnswered)
         };
     }, [socket]);
+    useEffect(() => {
+        const storedUserId = localStorage.getItem("selectedUserId");
+        if (storedUserId && users?.length) {
+            const user = users.find(u => u._id === storedUserId);
+            if (user) {
+                setSelectedUser(user);
+            }
+        }
+    }, [users]);
+useEffect(() => {
+    return () => {
+        cleanupCall();
+    };
+}, []);
 
-    
     return selectedUser ? (
         <div className='h-full overflow-scroll relative backdrop-blur-lg'>
             {/* Header */}
@@ -279,65 +489,86 @@ const Chatcontainer = () => {
                 <img src={assets.help_icon} alt="" className='max-md:hidden max-w-5 cursor-wait' />
             </div>
 
-{
-        incomingCall && !callAccepted && (
-            <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-4 rounded-xl shadow-lg flex items-center gap-6 z-50 animate-slideDown">
+            {incomingCall && !callAccepted && (
+                <div className="fixed inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center text-white z-50">
 
-                <div>
-                    <p className="font-semibold">
-                        {selectedUser?.fullName || "Incoming Call"}
-                    </p>
-                    <p className="text-sm text-gray-400">
-                        Incoming video call...
-                    </p>
+                    <img
+                        src={incomingCall.profilePic}
+                        className="w-28 h-28 rounded-full mb-4"
+                    />
+
+                    <h2 className="text-xl font-semibold">
+                        {incomingCall.callerName}
+                    </h2>
+
+                    <p className="mt-2">Incoming {incomingCall.callType} call...</p>
+
+                    <div className="flex gap-6 mt-8">
+
+                        {/* Reject */}
+                        <button
+                            onClick={declineCall}
+                            className="bg-red-600 p-4 rounded-full"
+                        >
+                            ❌
+                        </button>
+
+                        {/* Accept */}
+                        <button
+                            onClick={acceptCall}
+                            className="bg-green-600 p-4 rounded-full"
+                        >
+                            ✅
+                        </button>
+
+                    </div>
                 </div>
-
-                <div className="flex gap-3">
-                    <button
-                        onClick={() => {
-                            setCallAccepted(true)
-                            acceptCall()
-                        }}
-                        className="bg-green-500 px-3 py-1 rounded-full text-sm"
-                    >
-                        Accept
-                    </button>
-
-                    <button
-                        onClick={() => setIncomingCall(null)}
-                        className="bg-red-500 px-3 py-1 rounded-full text-sm"
-                    >
-                        Decline
-                    </button>
-                </div>
-            </div>
-        )
-    }
-            {/**its about giving audio access to stream
-            {remoteStream && (
-                <audio
-                    autoPlay
-                    ref={(audio) => {
-                        if (audio) {
-                            audio.srcObject = remoteStream
-                        }
-                    }}
-                />
-            )}*/}
-            {localStream && (
-                <video
-                    autoPlay
-                    muted
-                    playsInline
-                    ref={(video) => {
-                        if (video) video.srcObject = localStream
-                    }}
-                    className="w-40 h-40 object-cover rounded-lg"
-                />
             )}
 
-
-            {/* Messages */}
+            {currentCallType && (
+                <div className="fixed inset-0 bg-black z-50 flex flex-col justify-between items-center p-6">
+                    <div className="text-white text-center mt-10">
+                        <h2 className="text-xl font-semibold">{activeCallUser?.fullName}</h2>
+                        <p className="text-sm text-gray-400">
+                            {currentCallType === "audio" ? "Audio Call" : "Video Call"}</p>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center">
+                        {currentCallType === "video" && remoteStream && (
+                            <video
+    autoPlay
+    playsInline
+    ref={(video) => {
+        if (video) {
+            video.srcObject = remoteStream || null;
+        }
+    }}
+    className="w-80 rounded-xl"
+/>
+)}
+                        {currentCallType === "audio" && (
+                            <img
+                                src={activeCallUser?.profilePic || assets.avatar_icon}
+                                className="w-40 h-40 rounded-full" />)}
+                    </div>
+                    <div className="flex gap-8 mb-10">
+                        <button onClick={toggleMute}
+                            className={`p-5 rounded-full transition ${isMuted ? "bg-red-600" : "bg-gray-700"}`}>
+                            {isMuted ? <MicOff size={24} color="white" /> : <Mic size={24} color="white" />}
+                        </button>
+                        <button onClick={endCall}
+                            className="bg-red-600 p-5 rounded-full hover:bg-red-700 transition">
+                            <PhoneOff size={24} color="white" />
+                        </button>
+                        {currentCallType === "video" && (
+                            <button onClick={toggleVideo}
+                                className="bg-gray-700 p-5 rounded-full transition">
+                                <Video size={24} color="white" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+            {/* Messages things */}
             <div className='flex flex-col h-[calc(100%-120px)] overflow-y-scroll p-3 pb-6'>
                 {messages.map((msg, index) => {
                     const isMe = msg.senderId === authUser._id
