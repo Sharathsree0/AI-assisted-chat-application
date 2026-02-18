@@ -6,7 +6,7 @@ import Profilepage from './pages/Profilepage'
 import {Toaster} from "react-hot-toast"
 import { useContext } from 'react'
 import { AuthContext } from './context/authContext'
-import { ChatContext } from './context/chatContext'
+import { ChatContext } from './context/ChatContext'
  
 function App() {
   const {authUser,globalIncomingCall, setGlobalIncomingCall}=useContext(AuthContext)

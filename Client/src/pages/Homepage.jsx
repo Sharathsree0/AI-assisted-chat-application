@@ -2,7 +2,7 @@ import SideBar from '../components/SideBar'
 import Chatcontainer from '../components/Chatcontainer'
 import RightSidebar from '../components/RightSidebar'
 import { useContext } from 'react'
-import { ChatContext } from '../context/chatContext'
+import { ChatContext } from '../context/ChatContext'
 
 function Homepage() {
     const {selectedUser} = useContext(ChatContext) 

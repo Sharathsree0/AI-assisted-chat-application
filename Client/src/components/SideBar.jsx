@@ -3,7 +3,7 @@ import assets from '../assets/assets'
 import { useNavigate } from 'react-router-dom'
 import { useContext } from 'react'
 import { AuthContext } from '../context/authContext'
-import { ChatContext } from '../context/chatContext'
+import { ChatContext } from '../context/ChatContext'
 import { useState } from 'react'
 import { useEffect } from 'react'
 
