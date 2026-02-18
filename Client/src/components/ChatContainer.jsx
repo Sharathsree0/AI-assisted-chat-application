@@ -9,6 +9,7 @@ import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { Mic, MicOff, Video, VideoOff, PhoneOff, User } from "lucide-react";
 import axios from 'axios'
+import { useCall } from "../context/useCall.js";
 
 const Chatcontainer = () => {
 
@@ -47,310 +48,13 @@ const Chatcontainer = () => {
         socket
     } = useContext(AuthContext)
 
-    // CALL STATES 
-    ;
-    const [currentCallType, setCurrentCallType] = useState(null);
-    const [incomingCall, setIncomingCall] = useState(null);
-    const [isMuted, setIsMuted] = useState(false);
-    const [isCalling, setIsCalling] = useState(false);
-    const [callAccepted, setCallAccepted] = useState(false)
-    const [callEnded, setCallEnded] = useState(false)
-    const peerConnectionRef = useRef(null);
-    const callTimeoutRef = useRef(null);
-    const [localStream, setLocalStream] = useState(null);
-    const [remoteStream, setRemoteStream] = useState(null)
-    const [activeCallUser, setActiveCallUser] = useState(null);
-const localStreamRef = useRef(null);
-const remoteStreamRef = useRef(null);
-
-
-    // START AUDIO CALL
-    const startAudioCall = async () => {
-        if (!selectedUser || isCalling) return;
-
-        setIsCalling(true);
-        setCurrentCallType("audio");
-        setActiveCallUser(selectedUser);
-
-        callTimeoutRef.current = setTimeout(() => {
-            endCall();
-        }, 30000);
-
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        setLocalStream(stream);
-    localStreamRef.current = stream;
-
-        const { data } = await axios.get("/api/turn");
-
-        const pc = new RTCPeerConnection({
-            iceServers: data.iceServers
-        });
-
-        peerConnectionRef.current = pc;
-
-        stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-        pc.ontrack = (event) => {
-            setRemoteStream(event.streams[0]);
-            remoteStreamRef.current = event.streams[0];
-
-        };
-
-        pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit("iceCandidate", {
-                    receiverId: selectedUser._id,
-                    candidate: event.candidate
-                });
-            }
-        };
-
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-
-        socket.emit("callUser", {
-            receiverId: selectedUser._id,
-            offer,
-            callType: "audio"
-        });
-    };
-
-    //  START VIDEO CALL 
-    const startVideoCall = async () => {
-        if (!selectedUser || isCalling) return;
-
-        setIsCalling(true);
-        setCurrentCallType("video");
-        setActiveCallUser(selectedUser);
-
-        callTimeoutRef.current = setTimeout(() => {
-            endCall();
-        }, 30000);
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: true
-        });
-
-        setLocalStream(stream);
-        localStreamRef.current = stream;
-
-        const { data } = await axios.get("/api/turn");
-
-        const pc = new RTCPeerConnection({
-            iceServers: data.iceServers
-        });
-
-        peerConnectionRef.current = pc;
-
-        stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-        pc.ontrack = (event) => {
-            setRemoteStream(event.streams[0]);
-            remoteStreamRef.current = event.streams[0];
-        };
-
-        pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit("iceCandidate", {
-                    receiverId: selectedUser._id,
-                    candidate: event.candidate
-                });
-            }
-        };
-
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-
-        socket.emit("callUser", {
-            receiverId: selectedUser._id,
-            offer,
-            callType: "video"
-        });
-    };
-
-    //  ACCEPT CALL 
-    const acceptCall = async () => {
-        if (!incomingCall) return;
-
-        setCurrentCallType(incomingCall.callType);
-
-        if (callTimeoutRef.current) {
-            clearTimeout(callTimeoutRef.current);
-            callTimeoutRef.current = null;
-        }
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: incomingCall.callType === "video"
-        });
-
-        setLocalStream(stream);
-        localStreamRef.current = stream;
-
-
-        const { data } = await axios.get("/api/turn");
-
-        const pc = new RTCPeerConnection({
-            iceServers: data.iceServers
-        });
-
-        peerConnectionRef.current = pc;
-
-        stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-        pc.ontrack = (event) => {
-            setRemoteStream(event.streams[0]);
-            remoteStreamRef.current = event.streams[0];
-        };
-
-        pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit("iceCandidate", {
-                    receiverId: incomingCall.callerId,
-                    candidate: event.candidate
-                });
-            }
-        };
-
-        await pc.setRemoteDescription(
-            new RTCSessionDescription(incomingCall.offer)
-        );
-
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-
-        socket.emit("answerCall", {
-            callerId: incomingCall.callerId,
-            answer
-        });
-
-        setIncomingCall(null);
-        setCallAccepted(true);
-    };
-
-    // DECLINE CALL
-    const declineCall = () => {
-        if (!incomingCall) return;
-
-        socket.emit("endCall", {
-            receiverId: incomingCall.callerId
-        });
-
-        setIncomingCall(null);
-    };
-
-    //  END CALL
-const endCall = () => {
-
-    const receiverId =
-        incomingCall?.callerId ||
-        activeCallUser?._id ||
-        selectedUser?._id;
-
-    if (receiverId) {
-        console.log("Ending call with:", receiverId);
-        socket.emit("endCall", { receiverId });
-    }
-
-    cleanupCall();
-};
-
-const cleanupCall = () => {
-
-    if (callTimeoutRef.current) {
-        clearTimeout(callTimeoutRef.current);
-        callTimeoutRef.current = null;
-    }
-
-    if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => track.stop());
-        localStreamRef.current = null;
-    }
-
-    if (remoteStreamRef.current) {
-        remoteStreamRef.current.getTracks().forEach(track => track.stop());
-        remoteStreamRef.current = null;
-    }
-
-    if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-        peerConnectionRef.current = null;
-    }
-
-    setCurrentCallType(null);
-    setIncomingCall(null);
-    setIsCalling(false);
-    setCallAccepted(false);
-    setActiveCallUser(null);
-    setLocalStream(null);
-    setRemoteStream(null);
-};
-
-
-
-    // TOGGLE MUTE 
-    const toggleMute = () => {
-        if (!localStream) return;
-
-        const audioTrack = localStream.getAudioTracks()[0];
-        if (!audioTrack) return;
-
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsMuted(!audioTrack.enabled);
-    };
-
-    // TOGGLE VIDEO
-    const toggleVideo = () => {
-        if (!localStream) return;
-
-        const videoTrack = localStream.getVideoTracks()[0];
-        if (!videoTrack) return;
-
-        videoTrack.enabled = !videoTrack.enabled;
-    };
-
-    //  SOCKET LISTENERS 
-    useEffect(() => {
-        if (!socket) return;
-
-        socket.on("incomingCall", (data) => {
-            setIncomingCall(data);
-            setActiveCallUser({
-                _id: data.callerId,
-                fullName: data.callerName,
-                profilePic: data.profilePic
-            });
-
-        });
-        socket.on("callAnswered", async ({ answer }) => {
-            await peerConnectionRef.current?.setRemoteDescription(
-                new RTCSessionDescription(answer)
-            );
-            setCallAccepted(true);
-        });
-
-        socket.on("iceCandidate", async ({ candidate }) => {
-            if (peerConnectionRef.current) {
-                await peerConnectionRef.current.addIceCandidate(
-                    new RTCIceCandidate(candidate)
-                );
-            }
-        });
-
-        socket.on("callEnded", () => {
-    console.log("CALL ENDED RECEIVED");
-    cleanupCall();
-});
-
-
-        return () => {
-            socket.off("incomingCall");
-            socket.off("callAnswered");
-            socket.off("iceCandidate");
-            socket.off("callEnded");
-        };
-    }, [socket]);
+    const { call,
+        startCall,
+        acceptCall,
+        endCall,
+        toggleMute,
+        toggleVideo
+    } = useCall(socket, selectedUser);
 
     //ai handlers
     const handleAiRephrase = async () => {
@@ -465,12 +169,6 @@ const cleanupCall = () => {
             }
         }
     }, [users]);
-useEffect(() => {
-    return () => {
-        cleanupCall();
-    };
-}, []);
-
     return selectedUser ? (
         <div className='h-full overflow-scroll relative backdrop-blur-lg'>
             {/* Header */}
@@ -484,33 +182,33 @@ useEffect(() => {
 
                 <img onClick={() => setSelectedUser(null)}
                     src={assets.arrow_icon} alt="" className='md:hidden max-w-7 cursor-pointer' />
-                <img onClick={startAudioCall} src={assets.Audio_call} alt="" className='max-md:hidden max-w-5 cursor-pointer' />
-                <img onClick={startVideoCall} src={assets.Vide_call} alt="" className='max-md:hidden max-w-5 cursor-pointer ' />
+                <img onClick={() => startCall("audio")} src={assets.Audio_call} alt="" className='max-md:hidden max-w-5 cursor-pointer' />
+                <img onClick={() => startCall("video")} src={assets.Vide_call} alt="" className='max-md:hidden max-w-5 cursor-pointer ' />
                 <img src={assets.help_icon} alt="" className='max-md:hidden max-w-5 cursor-wait' />
             </div>
 
-            {incomingCall && !callAccepted && (
+            {call.status === "ringing" && call.incoming && (
                 <div className="fixed inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center text-white z-50">
 
                     <img
-                        src={incomingCall.profilePic}
+                        src={call.incoming.profilePic}
                         className="w-28 h-28 rounded-full mb-4"
                     />
 
                     <h2 className="text-xl font-semibold">
-                        {incomingCall.callerName}
+                        {call.incoming.callerName}
                     </h2>
 
-                    <p className="mt-2">Incoming {incomingCall.callType} call...</p>
+                    <p className="mt-2">Incoming {call.incoming.callType} call...</p>
 
                     <div className="flex gap-6 mt-8">
 
                         {/* Reject */}
                         <button
-                            onClick={declineCall}
+                            onClick={endCall}
                             className="bg-red-600 p-4 rounded-full"
                         >
-                            ❌
+                            Decline
                         </button>
 
                         {/* Accept */}
@@ -518,56 +216,112 @@ useEffect(() => {
                             onClick={acceptCall}
                             className="bg-green-600 p-4 rounded-full"
                         >
-                            ✅
+                            Accept
                         </button>
 
                     </div>
                 </div>
             )}
 
-            {currentCallType && (
-                <div className="fixed inset-0 bg-black z-50 flex flex-col justify-between items-center p-6">
-                    <div className="text-white text-center mt-10">
-                        <h2 className="text-xl font-semibold">{activeCallUser?.fullName}</h2>
-                        <p className="text-sm text-gray-400">
-                            {currentCallType === "audio" ? "Audio Call" : "Video Call"}</p>
-                    </div>
-                    <div className="flex-1 flex items-center justify-center">
-                        {currentCallType === "video" && remoteStream && (
-                            <video
-    autoPlay
-    playsInline
-    ref={(video) => {
-        if (video) {
-            video.srcObject = remoteStream || null;
-        }
-    }}
-    className="w-80 rounded-xl"
-/>
+             {call.type && (
+  <div className="fixed inset-0 bg-black z-50 flex flex-col justify-between items-center p-6">
+
+    {/* Top Info */}
+    <div className="text-white text-center mt-10">
+      <h2 className="text-xl font-semibold">
+        {call.activeUser?.fullName}
+      </h2>
+      <p className="text-sm text-gray-400">
+  {call.status === "calling" && "Calling..."}
+  {call.status === "ringing" && "Incoming call..."}
+  {call.status === "connected" &&
+    (call.type === "audio" ? "Audio Call" : "Video Call")}
+</p>
+
+    </div>
+
+    {/* Media Area */}
+    <div className="flex-1 flex items-center justify-center w-full">
+
+      {/* Show video only after accepted */}
+      {/* VIDEO CALL */}
+{call.type === "video" && call.status === "connected" &&  (
+  <div className="relative w-full h-full flex items-center justify-center">
+
+    {/* MAIN VIDEO (REMOTE USER) */}
+    {call.remoteStream ? (
+      <video
+        autoPlay
+        playsInline
+        className="w-[600px] max-w-full rounded-xl bg-black"
+        ref={(video) => {
+          if (video && call.remoteStream) {
+            video.srcObject = call.remoteStream;
+          }
+        }}
+      />
+    ) : (
+      <div className="text-white animate-pulse">
+        Waiting for video...
+      </div>
+    )}
+
+    {/* LOCAL SELF PREVIEW */}
+    
+  </div>
 )}
-                        {currentCallType === "audio" && (
-                            <img
-                                src={activeCallUser?.profilePic || assets.avatar_icon}
-                                className="w-40 h-40 rounded-full" />)}
-                    </div>
-                    <div className="flex gap-8 mb-10">
-                        <button onClick={toggleMute}
-                            className={`p-5 rounded-full transition ${isMuted ? "bg-red-600" : "bg-gray-700"}`}>
-                            {isMuted ? <MicOff size={24} color="white" /> : <Mic size={24} color="white" />}
-                        </button>
-                        <button onClick={endCall}
-                            className="bg-red-600 p-5 rounded-full hover:bg-red-700 transition">
-                            <PhoneOff size={24} color="white" />
-                        </button>
-                        {currentCallType === "video" && (
-                            <button onClick={toggleVideo}
-                                className="bg-gray-700 p-5 rounded-full transition">
-                                <Video size={24} color="white" />
-                            </button>
-                        )}
-                    </div>
-                </div>
-            )}
+
+
+      {/* Audio Call UI */}
+      {call.type === "audio" && (
+        <img
+          src={call.activeUser?.profilePic}
+          className="w-40 h-40 rounded-full"
+        />
+      )}
+
+      {/* Show connecting spinner */}
+{call.type === "video" && call.status !== "connected" && (
+        <div className="text-white text-lg animate-pulse">
+          Connecting...
+        </div>
+      )}
+    </div>
+
+    {/* Controls */}
+    <div className="flex gap-8 mb-10">
+      <button
+        onClick={toggleMute}
+        className={`p-5 rounded-full ${
+          call.muted ? "bg-red-600" : "bg-gray-700"
+        }`}
+      >
+        {call.muted ? <MicOff size={24} color="white" /> : <Mic size={24} color="white" />}
+      </button>
+
+      <button
+        onClick={endCall}
+        className="bg-red-600 p-5 rounded-full"
+      >
+        <PhoneOff size={24} color="white" />
+      </button>
+
+      {call.type === "video" && (
+  <button
+    onClick={toggleVideo}
+    className={`p-5 rounded-full ${
+      call.videoEnabled ? "bg-gray-700" : "bg-red-600"
+    }`}
+  >
+    {call.videoEnabled
+      ? <Video size={24} color="white" />
+      : <VideoOff size={24} color="white" />}
+  </button>
+)}
+    </div>
+  </div>
+)}
+
             {/* Messages things */}
             <div className='flex flex-col h-[calc(100%-120px)] overflow-y-scroll p-3 pb-6'>
                 {messages.map((msg, index) => {
@@ -579,7 +333,7 @@ useEffect(() => {
 
                     return (
                         <div
-                            key={index}
+                            key={msg._id}
                             onContextMenu={(e) => {
                                 e.preventDefault()
                                 setMenuMsgId(msg._id)

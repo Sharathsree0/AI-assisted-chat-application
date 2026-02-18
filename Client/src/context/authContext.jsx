@@ -13,6 +13,8 @@ export const AuthProvider = ({ children }) => {
     const [authUser, setAuthUser] = useState(null);
     const [onlineUser, setOnlineUser] = useState([]);
     const [socket, setSocket] = useState(null);
+    const [globalIncomingCall, setGlobalIncomingCall] = useState(null);
+
 
     //check the user is authenticated if so then user data connect the socket
 
@@ -76,7 +78,9 @@ export const AuthProvider = ({ children }) => {
         if (!userData || socket?.connected) return;
         const newSocket = io(backenUrl, {
             query: {
-                userId: userData._id
+                userId: userData._id,
+                fullName: userData.fullName,
+                profilePic: userData.profilePic
             }
         });
         newSocket.connect();
@@ -85,10 +89,28 @@ export const AuthProvider = ({ children }) => {
         newSocket.on("getOnlineUsers", (userIds) => {
             setOnlineUser(userIds);
         })
+        newSocket.on("incomingCall", (data) => {
+            setGlobalIncomingCall(data);
+
+            const audio = new Audio("/ring.mp3");
+            audio.loop = true;
+            audio.play();
+            window.__ringtone = audio;
+        });
+        newSocket.on("callAnswered", () => {
+            window.__ringtone?.pause();
+        });
+
+        newSocket.on("callEnded", () => {
+            window.__ringtone?.pause();
+            setGlobalIncomingCall(null);
+        });
+
+
     }
-useEffect(()=>{
-    checkAuth();
-},[])
+    useEffect(() => {
+        checkAuth();
+    }, [])
     const value = {
         axios,
         authUser,
@@ -96,7 +118,9 @@ useEffect(()=>{
         socket,
         login,
         logout,
-        updateProfile
+        updateProfile,
+        globalIncomingCall,
+        setGlobalIncomingCall
     }
 
     return (

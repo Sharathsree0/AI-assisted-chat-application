@@ -55,25 +55,31 @@ io.on("connection",(socket)=>{
 
   // showing online users
 io.emit("getOnlineUsers",Object.keys(userSocketMap))
-  socket.on("disconnect",()=>{
-  console.log("user disconnected",userId);
-    socket.broadcast.emit("callEnded");
+  socket.on("disconnect", () => {
+  const userId = socket.userId;
   delete userSocketMap[userId];
-  io.emit("getOnlineUsers",Object.keys(userSocketMap))
-})
+
+  io.emit("getOnlineUsers", Object.keys(userSocketMap));
+
+  // socket.broadcast.emit("callEnded");
+});
+
 
   //audio call invocking
 socket.on("callUser", ({ receiverId, offer, callType }) => {
    const reciverSocketId = userSocketMap[receiverId]
+
    if (reciverSocketId) {
       io.to(reciverSocketId).emit("incomingCall", {
-    offer,
-    callerId: socket.userId,
-    callerName: socket.handshake.query.fullName,
-    callType
-})
+        offer,
+        callerId: socket.userId,
+        callerName: socket.handshake.query.fullName,
+        profilePic: socket.handshake.query.profilePic, 
+        callType
+      })
    }
 })
+
 socket.on("answerCall", ({ callerId, answer }) => {
    const callerSocketId = userSocketMap[callerId]
 if (callerSocketId) {
