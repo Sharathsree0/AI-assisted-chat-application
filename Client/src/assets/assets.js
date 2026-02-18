@@ -18,6 +18,7 @@ import AI_logo from "./AI_logo.png"
 import Vide_call from "./icons8-video-call-50.png"
 import Audio_call from "./icons8-call-50.png"
 import Voice_recoder from "./icons8-voice-recorder-64.png"
+import ringtone from "./ring0-53517.mp3"
 
 
 
@@ -38,6 +39,7 @@ const assets = {
     arrow_icon,
     code,
     bgImage,
+    ringtone
 }
 
 export default assets;

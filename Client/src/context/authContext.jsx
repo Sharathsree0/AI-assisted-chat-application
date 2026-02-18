@@ -2,6 +2,7 @@ import axios from "axios";
 import { useEffect, useState, createContext } from "react";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client"
+import assets from "../assets/assets";
 
 const backenUrl = import.meta.env.VITE_BACKEND_URL;
 axios.defaults.baseURL = backenUrl
@@ -92,7 +93,7 @@ export const AuthProvider = ({ children }) => {
         newSocket.on("incomingCall", (data) => {
             setGlobalIncomingCall(data);
 
-            const audio = new Audio("/ring.mp3");
+            const audio = new Audio(assets.ringtone);
             audio.loop = true;
             audio.play();
             window.__ringtone = audio;
