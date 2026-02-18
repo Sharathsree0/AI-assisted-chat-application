@@ -64,7 +64,6 @@ io.emit("getOnlineUsers",Object.keys(userSocketMap))
   // socket.broadcast.emit("callEnded");
 });
 
-
   //audio call invocking
 socket.on("callUser", ({ receiverId, offer, callType }) => {
    const reciverSocketId = userSocketMap[receiverId]

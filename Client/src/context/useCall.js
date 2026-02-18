@@ -16,9 +16,7 @@ export const useCall = (socket, selectedUser) => {
     videoEnabled: true
   });
 
-  // =============================
-  // 1️⃣ Create Peer Connection
-  // =============================
+  // Create Peer Connection
   const createPeer = async (receiverId) => {
     const { data } = await axios.get("/api/turn");
 
@@ -46,9 +44,7 @@ export const useCall = (socket, selectedUser) => {
     return pc;
   };
 
-  // =============================
-  // 2️⃣ Start Call (Caller)
-  // =============================
+  // Start Call (Caller)
   const startCall = async (type) => {
     if (!selectedUser || !socket) return;
 
@@ -83,9 +79,7 @@ export const useCall = (socket, selectedUser) => {
     });
   };
 
-  // =============================
-  // 3️⃣ Accept Call (Receiver)
-  // =============================
+  //  Accept Call (Receiver)
   const acceptCall = async () => {
     if (!call.incoming) return;
 
@@ -126,9 +120,7 @@ export const useCall = (socket, selectedUser) => {
     }));
   };
 
-  // =============================
-  // 4️⃣ End Call
-  // =============================
+  //  End Call
   const cleanup = () => {
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     peerRef.current?.close();
@@ -166,9 +158,7 @@ const endCall = async () => {
 };
 
 
-  // =============================
-  // 5️⃣ Toggle Mute
-  // =============================
+  //  Toggle Mute
   const toggleMute = () => {
     const track = localStreamRef.current?.getAudioTracks()[0];
     if (!track) return;
@@ -193,9 +183,7 @@ const endCall = async () => {
 };
 
 
-  // =============================
-  // 6️⃣ Socket Listeners
-  // =============================
+  //  Socket Listeners
   useEffect(() => {
     if (!socket) return;
 

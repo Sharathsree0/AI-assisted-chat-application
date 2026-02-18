@@ -35,6 +35,7 @@ export const AuthProvider = ({ children }) => {
         try {
             const { data } = await axios.post(`/api/auth/${state}`, credentials)
             if (data.success) {
+                console.log("LOGIN RESPONSE:", data);
                 setAuthUser(data.userData);
                 connectSocket(data.userData);
                 toast.success(data.message)
