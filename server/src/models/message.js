@@ -3,8 +3,8 @@ import User from "./user.js";
 import { text } from "express";
 
 const messageSchema= new mongoose.Schema({
-    senderId:{type:mongoose.Schema.Types.ObjectId,ref:User,required:true},
-    receiverId:{type:mongoose.Schema.Types.ObjectId,ref:User,required:true},
+    senderId:{type:mongoose.Schema.Types.ObjectId,ref:"User",required:true},
+    receiverId:{type:mongoose.Schema.Types.ObjectId,ref:"User",required:true},
     text:{type:String},
     audio: { type: String },
     image:{type:String},
