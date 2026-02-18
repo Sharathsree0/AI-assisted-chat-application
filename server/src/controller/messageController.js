@@ -66,7 +66,7 @@ export const markMessageSeen =async(req,res)=>{
 
 export const sendMessage =async(req,res)=>{
  try{
-    const {text,image} = req.body;
+    const {text,image,audio } = req.body;
     const receiverId= req.params.id;
     const senderId= req.user._id;
     let imageUrl
@@ -74,8 +74,19 @@ export const sendMessage =async(req,res)=>{
         const uploadingResponse= await cloudinary.uploader.upload(image)
         imageUrl = uploadingResponse.secure_url;
     }
+  let audioUrl;
+
+if (audio) {
+  const uploadAudio = await cloudinary.uploader.upload(audio, {
+    resource_type: "video"
+  });
+
+  audioUrl = uploadAudio.secure_url;
+}
+
+
     const newMessage= await Message.create({
-        senderId,receiverId,text,image:imageUrl,status:"sent"
+        senderId,receiverId,text,image:imageUrl,audio: audioUrl,status:"sent"
     })
     //socket
    const reciverSocketId= userSocketMap[receiverId]
@@ -246,6 +257,7 @@ export const deleteMessage = async (req, res) => {
     message.isDeleted = true;
     message.text = "";
     message.image = "";
+    message.audio = "";
 
     await message.save();
 

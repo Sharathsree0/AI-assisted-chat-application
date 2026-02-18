@@ -21,6 +21,11 @@ const Chatcontainer = () => {
     const [editingMsgId, setEditingMsgId] = useState(null)
     const [editText, setEditText] = useState("")
 
+    ///voice recorde message states
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const [recording, setRecording] = useState(false);
+
     // ai states 
     const [oldInput, setOldInput] = useState("")
     const [showDecline, setShowDecline] = useState(false)
@@ -94,6 +99,65 @@ const Chatcontainer = () => {
             setAiLoading(false)
         }
     }
+
+    const startRecording = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        const options = { mimeType: "audio/webm;codecs=opus" };
+
+        const mediaRecorder = new MediaRecorder(stream, options);
+
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.start();
+        setRecording(true);
+
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                audioChunksRef.current.push(event.data);
+            }
+        };
+    };
+
+    const stopRecording = () => {
+        if (!mediaRecorderRef.current) return;
+
+        setRecording(false);
+
+        mediaRecorderRef.current.stop();
+
+        mediaRecorderRef.current.onstop = async () => {
+            const blob = new Blob(audioChunksRef.current, {
+                type: "audio/webm"
+            });
+
+            console.log("Blob size:", blob.size);
+
+            if (blob.size === 0) {
+                console.log("Empty blob ❌");
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onloadend = async () => {
+                try {
+                    await sendMessage({
+                        audio: reader.result   // base64 string
+                    });
+
+                    console.log("Audio sent ✅");
+                } catch (err) {
+                    console.error("Audio send failed ❌", err);
+                }
+
+                audioChunksRef.current = [];
+            };
+
+            reader.readAsDataURL(blob);
+        };
+    };
 
 
 
@@ -223,109 +287,108 @@ const Chatcontainer = () => {
                 </div>
             )}
 
-             {call.type && (
-  <div className="fixed inset-0 bg-black z-50 flex flex-col justify-between items-center p-6">
+            {call.type && (
+                <div className="fixed inset-0 bg-black z-50 flex flex-col justify-between items-center p-6">
 
-    {/* Top Info */}
-    <div className="text-white text-center mt-10">
-      <h2 className="text-xl font-semibold">
-        {call.activeUser?.fullName}
-      </h2>
-      <p className="text-sm text-gray-400">
-  {call.status === "calling" && "Calling..."}
-  {call.status === "ringing" && "Incoming call..."}
-  {call.status === "connected" &&
-    (call.type === "audio" ? "Audio Call" : "Video Call")}
-</p>
+                    {/* Top Info */}
+                    <div className="text-white text-center mt-10">
+                        <h2 className="text-xl font-semibold">
+                            {call.activeUser?.fullName}
+                        </h2>
+                        <p className="text-sm text-gray-400">
+                            {call.status === "calling" && "Calling..."}
+                            {call.status === "ringing" && "Incoming call..."}
+                            {call.status === "connected" &&
+                                (call.type === "audio" ? "Audio Call" : "Video Call")}
+                        </p>
 
-    </div>
+                    </div>
 
-    {/* Media Area */}
-    <div className="flex-1 flex items-center justify-center w-full">
+                    {/* Media Area */}
+                    <div className="flex-1 flex items-center justify-center w-full">
 
-      {/* Show video only after accepted */}
-      {/* VIDEO CALL */}
-{call.type === "video" && call.status === "connected" &&  (
-  <div className="relative w-full h-full flex items-center justify-center">
+                        {/* Show video only after accepted */}
+                        {/* VIDEO CALL */}
+                        {call.type === "video" && call.status === "connected" && (
+                            <div className="relative w-full h-full flex items-center justify-center">
 
-    {/* MAIN VIDEO (REMOTE USER) */}
-    {call.remoteStream ? (
-      <video
-        autoPlay
-        playsInline
-        className="w-[600px] max-w-full rounded-xl bg-black"
-        ref={(video) => {
-          if (video && call.remoteStream) {
-            video.srcObject = call.remoteStream;
-          }
-        }}
-      />
-    ) : (
-      <div className="text-white animate-pulse">
-        Waiting for video...
-      </div>
-    )}
+                                {/* MAIN VIDEO (REMOTE USER) */}
+                                {call.remoteStream ? (
+                                    <video
+                                        autoPlay
+                                        playsInline
+                                        className="w-[600px] max-w-full rounded-xl bg-black"
+                                        ref={(video) => {
+                                            if (video && call.remoteStream) {
+                                                video.srcObject = call.remoteStream;
+                                            }
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="text-white animate-pulse">
+                                        Waiting for video...
+                                    </div>
+                                )}
 
-    {/* LOCAL SELF PREVIEW */}
-    
-  </div>
-)}
+                                {/* LOCAL SELF PREVIEW */}
+
+                            </div>
+                        )}
 
 
-      {/* Audio Call UI */}
-      {call.type === "audio" && (
-        <img
-          src={call.activeUser?.profilePic}
-          className="w-40 h-40 rounded-full"
-        />
-      )}
+                        {/* Audio Call UI */}
+                        {call.type === "audio" && (
+                            <img
+                                src={call.activeUser?.profilePic}
+                                className="w-40 h-40 rounded-full"
+                            />
+                        )}
 
-      {/* Show connecting spinner */}
-{call.type === "video" && call.status !== "connected" && (
-        <div className="text-white text-lg animate-pulse">
-          Connecting...
-        </div>
-      )}
-    </div>
+                        {/* Show connecting spinner */}
+                        {call.type === "video" && call.status !== "connected" && (
+                            <div className="text-white text-lg animate-pulse">
+                                Connecting...
+                            </div>
+                        )}
+                    </div>
 
-    {/* Controls */}
-    <div className="flex gap-8 mb-10">
-      <button
-        onClick={toggleMute}
-        className={`p-5 rounded-full ${
-          call.muted ? "bg-red-600" : "bg-gray-700"
-        }`}
-      >
-        {call.muted ? <MicOff size={24} color="white" /> : <Mic size={24} color="white" />}
-      </button>
+                    {/* Controls */}
+                    <div className="flex gap-8 mb-10">
+                        <button
+                            onClick={toggleMute}
+                            className={`p-5 rounded-full ${call.muted ? "bg-red-600" : "bg-gray-700"
+                                }`}
+                        >
+                            {call.muted ? <MicOff size={24} color="white" /> : <Mic size={24} color="white" />}
+                        </button>
 
-      <button
-        onClick={endCall}
-        className="bg-red-600 p-5 rounded-full"
-      >
-        <PhoneOff size={24} color="white" />
-      </button>
+                        <button
+                            onClick={endCall}
+                            className="bg-red-600 p-5 rounded-full"
+                        >
+                            <PhoneOff size={24} color="white" />
+                        </button>
 
-      {call.type === "video" && (
-  <button
-    onClick={toggleVideo}
-    className={`p-5 rounded-full ${
-      call.videoEnabled ? "bg-gray-700" : "bg-red-600"
-    }`}
-  >
-    {call.videoEnabled
-      ? <Video size={24} color="white" />
-      : <VideoOff size={24} color="white" />}
-  </button>
-)}
-    </div>
-  </div>
-)}
+                        {call.type === "video" && (
+                            <button
+                                onClick={toggleVideo}
+                                className={`p-5 rounded-full ${call.videoEnabled ? "bg-gray-700" : "bg-red-600"
+                                    }`}
+                            >
+                                {call.videoEnabled
+                                    ? <Video size={24} color="white" />
+                                    : <VideoOff size={24} color="white" />}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Messages things */}
             <div className='flex flex-col h-[calc(100%-120px)] overflow-y-scroll p-3 pb-6'>
                 {messages.map((msg, index) => {
                     const isMe = msg.senderId === authUser._id
+                    const isCallMessage = msg.text?.startsWith("__CALL__");
                     const groupReaction = {}
                     msg.reactions?.forEach(r => {
                         groupReaction[r.emoji] = (groupReaction[r.emoji] || 0) + 1
@@ -346,6 +409,30 @@ const Chatcontainer = () => {
                                     alt=""
                                     className='max-w-[230px] border border-gray-700 rounded-lg overflow-hidden mb-8'
                                 />
+                            ) : msg.audio ? (
+                                <div
+                                    className={`relative group mb-8 max-w-[240px] ${isMe ? "self-end" : "self-start"
+                                        }`}
+                                >
+                                    <div
+                                        className={`p-2 rounded-xl ${isMe
+                                                ? "bg-violet-500/30 rounded-br-none"
+                                                : "bg-gray-700/40 rounded-bl-none"
+                                            }`}
+                                    >
+                                        <audio
+                                            controls
+                                            className="w-[220px] h-8"
+                                        >
+                                            <source src={msg.audio} type="audio/webm" />
+                                        </audio>
+                                    </div>
+                                </div>
+
+                            ) : isCallMessage ? (
+                                <div className="w-full text-center text-gray-400 text-xs my-4">
+                                    📞 {msg.text.replace("__CALL__", "")}
+                                </div>
                             ) : (
                                 <p
                                     className={`p-2 max-w-[200px] md:text-sm font-light rounded-lg mb-8 break-all bg-violet-500/30 text-white ${isMe ? 'rounded-br-none' : 'rounded-bl-none'}`}
@@ -514,7 +601,23 @@ const Chatcontainer = () => {
                     )}
 
                     <div className='relatrelative group'>
-                        <img src={assets.Voice_recoder} className='w-5 mr-2 cursor-pointer' />
+                        <img src={assets.Voice_recoder} className={`w-5 mr-2 cursor-pointer transition ${recording ? "filter brightness-150 hue-rotate-[-50deg]" : ""
+                            }`}
+                            onClick={() => {
+                                if (!recording) {
+                                    startRecording();
+                                } else {
+                                    stopRecording();
+                                }
+                            }}
+                        />
+
+                        {recording && (
+                            <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-red-500 flex items-center gap-1">
+                                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                                Recording...
+                            </span>
+                        )}
                     </div>
 
                     <div className='relatrelative group'>

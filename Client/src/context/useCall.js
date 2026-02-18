@@ -147,18 +147,24 @@ export const useCall = (socket, selectedUser) => {
     });
   };
 
-  const endCall = () => {
-    if (!socket) return;
+const endCall = async () => {
+  if (!socket) return;
 
-    const receiverId =
-      call.activeUser?._id || selectedUser?._id;
+  const receiverId =
+    call.activeUser?._id || selectedUser?._id;
+  if (receiverId) {
+    socket.emit("endCall", { receiverId });
+    const callLabel =
+      call.type === "video"
+        ? "Video call"
+        : "Audio call";
+    await axios.post(`/api/messages/send/${receiverId}`, {
+      text: `__CALL__${callLabel}`
+    });
+  }
+  cleanup();
+};
 
-    if (receiverId) {
-      socket.emit("endCall", { receiverId });
-    }
-
-    cleanup();
-  };
 
   // =============================
   // 5️⃣ Toggle Mute
