@@ -1,5 +1,5 @@
 import SideBar from '../components/SideBar'
-import Chatcontainer from '../components/Chatcontainer'
+import Chatcontainer from '../components/ChatContainer'
 import RightSidebar from '../components/RightSidebar'
 import { useContext } from 'react'
 import { ChatContext } from '../context/ChatContext'
