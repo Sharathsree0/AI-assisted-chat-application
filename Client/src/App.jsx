@@ -1,6 +1,6 @@
 import React from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import Homepage from './pages/homepage'
+import Homepage from './pages/Homepage'
 import Loginpage from './pages/Loginpage'
 import Profilepage from './pages/Profilepage'
 import {Toaster} from "react-hot-toast"
