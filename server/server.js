@@ -107,7 +107,6 @@ app.use(morgan("dev"))
 app.use(cookieParser())
 await connectDB()
 
-app.get("/api/turn", protectedRoute, getTurnCredentials);
 app.use("/api/auth",userRouter)
 app.use("/api/ai",aiRouter)
 app.use("/api/messages",messageRouter)
