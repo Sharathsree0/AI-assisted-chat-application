@@ -144,7 +144,7 @@ const Chatcontainer = () => {
             reader.onloadend = async () => {
                 try {
                     await sendMessage({
-                        audio: reader.result   // base64 string
+                        audio: reader.result
                     });
 
                     console.log("Audio sent ✅");
@@ -521,7 +521,6 @@ const Chatcontainer = () => {
                 <div ref={scrollEnd}></div>
             </div>
 
-            //centerlised message reaction
             {menuMsgId && (
                 <div
                     className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
