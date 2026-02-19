@@ -51,7 +51,12 @@ export const login =async(req,res)=>{
             return res.json({ success: false, message: "Invalid credentials" });
 }
         const token= generateToken(userData._id)
-            res.cookie("token",token,{httpOnly:true,secure:true,sameSite: "none", maxAge: 7 * 24 * 60 * 60 * 1000})
+res.cookie("token", token, {
+  httpOnly: true,
+  secure: false,
+  sameSite: "lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000
+})
             res.json({success:true,userData:userData,message:"Login successfully"})
     }catch(error){
         console.log(error.message)
