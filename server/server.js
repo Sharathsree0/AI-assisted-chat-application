@@ -9,7 +9,6 @@ import { connectDB } from "./src/lib/db.js";
 import userRouter from "./src/routes/userRoutes.js";
 import messageRouter from "./src/routes/messageRoutes.js";
 import aiRouter from "./src/routes/aiRoutes.js";
-import { getTurnCredentials } from "./src/controller/turnController.js";
 import { protectedRoute } from "./src/middleWare/auth.js";
 const app =express()
 const PORT =process.env.PORT || 5000
