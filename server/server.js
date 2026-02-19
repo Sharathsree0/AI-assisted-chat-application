@@ -60,7 +60,6 @@ io.emit("getOnlineUsers",Object.keys(userSocketMap))
 
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // socket.broadcast.emit("callEnded");
 });
 
   //audio call invocking

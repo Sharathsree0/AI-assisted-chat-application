@@ -18,8 +18,6 @@ export const useCall = (socket, selectedUser) => {
 
   // Create Peer Connection
   const createPeer = async (receiverId) => {
-    // const { data } = await axios.get("/api/turn");
-
     const pc = new RTCPeerConnection({
 iceServers: [
     { urls: "stun:stun.l.google.com:19302" }
