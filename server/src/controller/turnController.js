@@ -6,6 +6,7 @@ export const getTurnCredentials = async (req, res) => {
       process.env.TWILIO_ACCOUNT_SID,
       process.env.TWILIO_AUTH_TOKEN
     );
+    console.error("other client:", client);
 
     const token = await client.tokens.create();
 
