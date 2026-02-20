@@ -27,11 +27,15 @@ export const useCall = (socket, selectedUser) => {
     console.log("🟢 Creating peer for:", receiverId);
 
     const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" }
-      ]
-    });
-
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject"
+    }
+  ]
+});
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         socket.emit("iceCandidate", {

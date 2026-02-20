@@ -100,12 +100,19 @@ export const AuthProvider = ({ children }) => {
             window.__ringtone = audio;
         });
         newSocket.on("callAnswered", () => {
-            window.__ringtone?.pause();
+            if (window.__ringtone) {
+                window.__ringtone.pause();
+                window.__ringtone.currentTime = 0;
+                window.__ringtone = null;
+            }
         });
 
         newSocket.on("callEnded", () => {
-            window.__ringtone?.pause();
-            setGlobalIncomingCall(null);
+            if (window.__ringtone) {
+                window.__ringtone.pause();
+                window.__ringtone.currentTime = 0;
+                window.__ringtone = null;
+            }
         });
 
 
