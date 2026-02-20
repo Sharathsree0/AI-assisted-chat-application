@@ -17,158 +17,161 @@ const pendingCandidates = useRef([]);
   });
 
   // Create Peer Connection
-  const createPeer = async (receiverId) => {
-    const pc = new RTCPeerConnection({
-iceServers: [
-    { urls: "stun:stun.l.google.com:19302" }
-  ]    
-});
+  const createPeer = (receiverId) => {
 
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit("iceCandidate", {
-          receiverId,
-          candidate: event.candidate
-        });
-      }
-    };
+  const pc = new RTCPeerConnection({
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" }
+    ]
+  });
 
-    pc.ontrack = (event) => {
-      setCall(prev => ({
-        ...prev,
-        remoteStream: event.streams[0]
-      }));
-    };
-
-    peerRef.current = pc;
-    return pc;
+  pc.onicecandidate = (event) => {
+    if (event.candidate) {
+      socket.emit("iceCandidate", {
+        receiverId,
+        candidate: event.candidate
+      });
+    }
   };
+
+  pc.ontrack = (event) => {
+    setCall(prev => ({
+      ...prev,
+      remoteStream: event.streams[0]
+    }));
+  };
+
+  peerRef.current = pc;
+  return pc;
+};
 
   // Start Call (Caller)
   const startCall = async (type) => {
-    if (!selectedUser || !socket) return;
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: type === "video"
-    });
+  if (!selectedUser || !socket) return;
 
-    localStreamRef.current = stream;
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: true,
+    video: type === "video"
+  });
 
-    setCall(prev => ({
-      ...prev,
-      status: "calling",
-      type,
-      activeUser: selectedUser,
-      localStream: stream
-    }));
+  localStreamRef.current = stream;
 
-    const pc = await createPeer(selectedUser._id);
+  setCall(prev => ({
+    ...prev,
+    status: "calling",
+    type,
+    activeUser: selectedUser,
+    localStream: stream
+  }));
 
-    stream.getTracks().forEach(track =>
-      pc.addTrack(track, stream)
-    );
+  const pc = createPeer(selectedUser._id);
 
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
+  stream.getTracks().forEach(track =>
+    pc.addTrack(track, stream)
+  );
 
-    socket.emit("callUser", {
-      receiverId: selectedUser._id,
-      offer,
-      callType: type
-    });
-  };
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+
+  socket.emit("callUser", {
+    receiverId: selectedUser._id,
+    offer,
+    callType: type
+  });
+};
 
   //  Accept Call (Receiver)
   const acceptCall = async () => {
-    window.__ringtone?.pause();
-    window.__ringtone = null;
-    if (!call.incoming) return;
 
-    const { callerId, offer, callType, callerName, profilePic } =
-      call.incoming;
+  window.__ringtone?.pause();
+  window.__ringtone = null;
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: callType === "video"
-    });
-    console.log("REMOTE STREAM:", call.remoteStream)
-    localStreamRef.current = stream;
+  if (!call.incoming) return;
 
-    const pc = await createPeer(callerId);
+  const { callerId, offer, callType, callerName, profilePic } =
+    call.incoming;
 
-    stream.getTracks().forEach(track =>
-      pc.addTrack(track, stream)
-    );
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: true,
+    video: callType === "video"
+  });
 
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    pendingCandidates.current.forEach(async (candidate) => {
-  try {
-    await pc.addIceCandidate(candidate);
-  } catch (err) {
-    console.error("ICE flush error:", err);
-  }
-});
-pendingCandidates.current = [];
+  localStreamRef.current = stream;
 
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
+  const pc = createPeer(callerId);
 
-    socket.emit("answerCall", { callerId, answer });
+  stream.getTracks().forEach(track =>
+    pc.addTrack(track, stream)
+  );
 
-    setCall(prev => ({
-      ...prev,
-      status: "connected",
-      type: callType,
-      activeUser: {
-        _id: callerId,
-        fullName: callerName,
-        profilePic
-      },
-      localStream: stream,
-      incoming: null
-    }));
-  };
+  await pc.setRemoteDescription(new RTCSessionDescription(offer));
+
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+
+  socket.emit("answerCall", { callerId, answer });
+
+  setCall({
+    status: "connected",
+    type: callType,
+    incoming: null,
+    activeUser: {
+      _id: callerId,
+      fullName: callerName,
+      profilePic
+    },
+    localStream: stream,
+    remoteStream: null,
+    muted: false,
+    videoEnabled: true
+  });
+};
 
   //  End Call
   const cleanup = () => {
-    localStreamRef.current?.getTracks().forEach(t => t.stop());
-    peerRef.current?.close();
 
-    peerRef.current = null;
-    localStreamRef.current = null;
+  localStreamRef.current?.getTracks().forEach(t => t.stop());
+  peerRef.current?.close();
 
-    setCall({
-      status: "idle",
-      type: null,
-      incoming: null,
-      activeUser: null,
-      localStream: null,
-      remoteStream: null,
-      muted: false
-    });
-  };
+  peerRef.current = null;
+  localStreamRef.current = null;
+
+  pendingCandidates.current = [];
+
+  setCall({
+    status: "idle",
+    type: null,
+    incoming: null,
+    activeUser: null,
+    localStream: null,
+    remoteStream: null,
+    muted: false,
+    videoEnabled: true
+  });
+};
 
 const endCall = async () => {
+
   window.__ringtone?.pause();
-window.__ringtone = null;
-  if (!socket) return;
+  window.__ringtone = null;
 
   const receiverId =
     call.activeUser?._id || selectedUser?._id;
+
   if (receiverId) {
     socket.emit("endCall", { receiverId });
-    const callLabel =
-      call.type === "video"
-        ? "Video call"
-        : "Audio call";
+
+    const label =
+      call.type === "video" ? "Video call" : "Audio call";
+
     await axios.post(`/api/messages/send/${receiverId}`, {
-      text: `__CALL__${callLabel}`
+      text: `__CALL__${label}`
     });
   }
+
   cleanup();
 };
-
 
   //  Toggle Mute
   const toggleMute = () => {
@@ -197,66 +200,63 @@ window.__ringtone = null;
 
   //  Socket Listeners
   useEffect(() => {
-    if (!socket) return;
 
-    const handleIncoming = (data) => {
-      setCall(prev => ({
-        ...prev,
-        status: "ringing",
-        incoming: data
-      }));
-    };
+  if (!socket) return;
 
-    const handleAnswered = async ({ answer }) => {
-      await peerRef.current.setRemoteDescription(
-        new RTCSessionDescription(answer)
-      );
-      pendingCandidates.current.forEach(async (candidate) => {
-  try {
-    await peerRef.current.addIceCandidate(candidate);
-  } catch (err) {
-    console.error("ICE flush error:", err);
-  }
-});
-pendingCandidates.current = [];
+  const handleIncoming = (data) => {
+    setCall(prev => ({
+      ...prev,
+      status: "ringing",
+      incoming: data
+    }));
+  };
 
-      setCall(prev => ({
-        ...prev,
-        status: "connected"
-      }));
-    };
+  const handleAnswered = async ({ answer }) => {
 
-   const handleIce = async ({ candidate }) => {
+    if (!peerRef.current) return;
+
+    await peerRef.current.setRemoteDescription(
+      new RTCSessionDescription(answer)
+    );
+
+    setCall(prev => ({
+      ...prev,
+      status: "connected"
+    }));
+  };
+
+  const handleIce = async ({ candidate }) => {
+
   if (!peerRef.current) return;
 
-  const iceCandidate = new RTCIceCandidate(candidate);
+  if (!peerRef.current.remoteDescription) return;
 
-  if (peerRef.current.remoteDescription) {
-    try {
-      await peerRef.current.addIceCandidate(iceCandidate);
-    } catch (err) {
-      console.error("ICE error:", err);
-    }
-  } else {
-    pendingCandidates.current.push(iceCandidate);
+  try {
+    await peerRef.current.addIceCandidate(
+      new RTCIceCandidate(candidate)
+    );
+  } catch (err) {
+    console.error("ICE error:", err);
   }
 };
-    const handleEnded = () => {
-      cleanup();
-    };
 
-    socket.on("incomingCall", handleIncoming);
-    socket.on("callAnswered", handleAnswered);
-    socket.on("iceCandidate", handleIce);
-    socket.on("callEnded", handleEnded);
+  const handleEnded = () => {
+    cleanup();
+  };
 
-    return () => {
-      socket.off("incomingCall", handleIncoming);
-      socket.off("callAnswered", handleAnswered);
-      socket.off("iceCandidate", handleIce);
-      socket.off("callEnded", handleEnded);
-    };
-  }, [socket]);
+  socket.on("incomingCall", handleIncoming);
+  socket.on("callAnswered", handleAnswered);
+  socket.on("iceCandidate", handleIce);
+  socket.on("callEnded", handleEnded);
+
+  return () => {
+    socket.off("incomingCall", handleIncoming);
+    socket.off("callAnswered", handleAnswered);
+    socket.off("iceCandidate", handleIce);
+    socket.off("callEnded", handleEnded);
+  };
+
+}, [socket]);
 
   return {
     call,
