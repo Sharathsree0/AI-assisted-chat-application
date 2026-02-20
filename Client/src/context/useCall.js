@@ -4,7 +4,7 @@ import axios from "axios";
 export const useCall = (socket, selectedUser) => {
   const peerRef = useRef(null);
   const localStreamRef = useRef(null);
-
+const pendingCandidates = useRef([]);
   const [call, setCall] = useState({
     status: "idle", 
     type: null,   
@@ -102,6 +102,14 @@ iceServers: [
     );
 
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    pendingCandidates.current.forEach(async (candidate) => {
+  try {
+    await pc.addIceCandidate(candidate);
+  } catch (err) {
+    console.error("ICE flush error:", err);
+  }
+});
+pendingCandidates.current = [];
 
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
@@ -203,6 +211,14 @@ window.__ringtone = null;
       await peerRef.current.setRemoteDescription(
         new RTCSessionDescription(answer)
       );
+      pendingCandidates.current.forEach(async (candidate) => {
+  try {
+    await peerRef.current.addIceCandidate(candidate);
+  } catch (err) {
+    console.error("ICE flush error:", err);
+  }
+});
+pendingCandidates.current = [];
 
       setCall(prev => ({
         ...prev,
@@ -210,18 +226,21 @@ window.__ringtone = null;
       }));
     };
 
-    const handleIce = async ({ candidate }) => {
-      if (!peerRef.current) return;
+   const handleIce = async ({ candidate }) => {
+  if (!peerRef.current) return;
 
-      try {
-        await peerRef.current.addIceCandidate(
-          new RTCIceCandidate(candidate)
-        );
-      } catch (err) {
-        console.error("ICE error:", err);
-      }
-    };
+  const iceCandidate = new RTCIceCandidate(candidate);
 
+  if (peerRef.current.remoteDescription) {
+    try {
+      await peerRef.current.addIceCandidate(iceCandidate);
+    } catch (err) {
+      console.error("ICE error:", err);
+    }
+  } else {
+    pendingCandidates.current.push(iceCandidate);
+  }
+};
     const handleEnded = () => {
       cleanup();
     };
