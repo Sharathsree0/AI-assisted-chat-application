@@ -330,7 +330,19 @@ const Chatcontainer = () => {
                                     </div>
                                 )}
 
-                                {/* LOCAL SELF PREVIEW */}
+                                {call.localStream && (
+                                    <video
+                                        autoPlay
+                                        playsInline
+                                        muted
+                                        className="absolute bottom-6 right-6 w-32 h-40 rounded-lg border-2 border-white"
+                                        ref={(video) => {
+                                            if (video) {
+                                                video.srcObject = call.localStream;
+                                            }
+                                        }}
+                                    />
+                                )}
 
                             </div>
                         )}
@@ -416,8 +428,8 @@ const Chatcontainer = () => {
                                 >
                                     <div
                                         className={`p-2 rounded-xl ${isMe
-                                                ? "bg-violet-500/30 rounded-br-none"
-                                                : "bg-gray-700/40 rounded-bl-none"
+                                            ? "bg-violet-500/30 rounded-br-none"
+                                            : "bg-gray-700/40 rounded-bl-none"
                                             }`}
                                     >
                                         <audio

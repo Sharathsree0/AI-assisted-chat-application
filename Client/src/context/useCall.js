@@ -81,6 +81,8 @@ iceServers: [
 
   //  Accept Call (Receiver)
   const acceptCall = async () => {
+    window.__ringtone?.pause();
+    window.__ringtone = null;
     if (!call.incoming) return;
 
     const { callerId, offer, callType, callerName, profilePic } =
@@ -90,7 +92,7 @@ iceServers: [
       audio: true,
       video: callType === "video"
     });
-
+    console.log("REMOTE STREAM:", call.remoteStream)
     localStreamRef.current = stream;
 
     const pc = await createPeer(callerId);
@@ -140,6 +142,8 @@ iceServers: [
   };
 
 const endCall = async () => {
+  window.__ringtone?.pause();
+window.__ringtone = null;
   if (!socket) return;
 
   const receiverId =
