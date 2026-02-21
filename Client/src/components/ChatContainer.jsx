@@ -22,6 +22,7 @@ const Chatcontainer = () => {
     const [editText, setEditText] = useState("")
 
     ///voice recorde message states
+    const remoteVideoRef = useRef(null);
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const [recording, setRecording] = useState(false);
@@ -194,7 +195,11 @@ const Chatcontainer = () => {
             scrollEnd.current.scrollIntoView({ behavior: "smooth" })
         }
     }, [messages])
-
+    useEffect(() => {
+        if (remoteVideoRef.current && call.remoteStream) {
+            remoteVideoRef.current.srcObject = call.remoteStream;
+        }
+    }, [call.remoteStream]);
     useEffect(() => {
         if (!socket) return;
 
@@ -315,14 +320,10 @@ const Chatcontainer = () => {
                                 {/* MAIN VIDEO (REMOTE USER) */}
                                 {call.remoteStream ? (
                                     <video
+                                        ref={remoteVideoRef}
                                         autoPlay
                                         playsInline
                                         className="w-[600px] max-w-full rounded-xl bg-black"
-                                        ref={(video) => {
-                                            if (video && call.remoteStream) {
-                                                video.srcObject = call.remoteStream;
-                                            }
-                                        }}
                                     />
                                 ) : (
                                     <div className="text-white animate-pulse">

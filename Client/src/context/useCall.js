@@ -18,9 +18,7 @@ export const useCall = (socket, selectedUser) => {
     videoEnabled: true
   });
 
-  /* =========================
-     CREATE PEER CONNECTION
-  ========================== */
+//     CREATE PEER CONNECTION
 
   const createPeer = (receiverId) => {
 
@@ -46,7 +44,7 @@ export const useCall = (socket, selectedUser) => {
     };
 
     pc.ontrack = (event) => {
-      console.log("🎥 Remote track received");
+  console.log("REMOTE TRACK RECEIVED", event.streams);
       setCall(prev => ({
         ...prev,
         remoteStream: event.streams[0]
@@ -61,9 +59,7 @@ export const useCall = (socket, selectedUser) => {
     return pc;
   };
 
-  /* =========================
-     START CALL (CALLER)
-  ========================== */
+//     START CALL (CALLER)
 
   const startCall = async (type) => {
 
@@ -102,14 +98,9 @@ export const useCall = (socket, selectedUser) => {
     });
   };
 
-  /* =========================
-     ACCEPT CALL (RECEIVER)
-  ========================== */
+//     ACCEPT CALL (RECEIVER)
 
   const acceptCall = async () => {
-
-    window.__ringtone?.pause();
-    window.__ringtone = null;
 
     if (!call.incoming) return;
 
@@ -163,9 +154,7 @@ export const useCall = (socket, selectedUser) => {
     });
   };
 
-  /* =========================
-     END CALL
-  ========================== */
+//     END CALL
 
   const cleanup = () => {
 
@@ -191,12 +180,8 @@ export const useCall = (socket, selectedUser) => {
   };
 
   const endCall = async () => {
-
-    window.__ringtone?.pause();
-    window.__ringtone = null;
-
     const receiverId =
-      call.activeUser?._id || selectedUser?._id;
+      call.incoming?.callerId || call.activeUser?._id || selectedUser?._id;
 
     if (receiverId) {
       socket.emit("endCall", { receiverId });
@@ -212,9 +197,7 @@ export const useCall = (socket, selectedUser) => {
     cleanup();
   };
 
-  /* =========================
-     TOGGLES
-  ========================== */
+//   TOGGLES
 
   const toggleMute = () => {
     const track = localStreamRef.current?.getAudioTracks()[0];
@@ -240,9 +223,7 @@ export const useCall = (socket, selectedUser) => {
     }));
   };
 
-  /* =========================
-     SOCKET LISTENERS
-  ========================== */
+//     SOCKET LISTENERS
 
   useEffect(() => {
 
