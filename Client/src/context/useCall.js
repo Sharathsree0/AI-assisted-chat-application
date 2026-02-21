@@ -26,13 +26,24 @@ export const useCall = (socket, selectedUser) => {
 
     const pc = new RTCPeerConnection({
   iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    {
-  urls: "turn:openrelay.metered.ca:443?transport=tcp",
-  username: "openrelayproject",
-  credential: "openrelayproject"
-}
-  ]
+  { urls: "stun:stun.l.google.com:19302" },
+
+  {
+    urls: "turn:openrelay.metered.ca:80",
+    username: "openrelayproject",
+    credential: "openrelayproject"
+  },
+  {
+    urls: "turn:openrelay.metered.ca:443",
+    username: "openrelayproject",
+    credential: "openrelayproject"
+  },
+  {
+    urls: "turn:openrelay.metered.ca:443?transport=tcp",
+    username: "openrelayproject",
+    credential: "openrelayproject"
+  }
+]
 });
     pc.onicecandidate = (event) => {
       if (event.candidate) {
@@ -51,9 +62,13 @@ export const useCall = (socket, selectedUser) => {
       }));
     };
 
-    pc.onconnectionstatechange = () => {
-      console.log("🔗 Connection state:", pc.connectionState);
-    };
+   pc.oniceconnectionstatechange = () => {
+  console.log("🧊 ICE state:", pc.iceConnectionState);
+};
+
+pc.onconnectionstatechange = () => {
+  console.log("🔗 Peer state:", pc.connectionState);
+};
 
     peerRef.current = pc;
     return pc;
@@ -138,20 +153,17 @@ export const useCall = (socket, selectedUser) => {
 
     socket.emit("answerCall", { callerId, answer });
 
-    setCall({
-      status: "connected",
-      type: callType,
-      incoming: null,
-      activeUser: {
-        _id: callerId,
-        fullName: callerName,
-        profilePic
-      },
-      localStream: stream,
-      remoteStream: null,
-      muted: false,
-      videoEnabled: true
-    });
+    setCall(prev => ({
+  ...prev,
+  status: "connecting",
+  incoming: null,
+  activeUser: {
+    _id: callerId,
+    fullName: callerName,
+    profilePic
+  },
+  localStream: stream
+}));
   };
 
 //     END CALL
@@ -265,8 +277,11 @@ export const useCall = (socket, selectedUser) => {
     };
 
     const handleIce = async ({ candidate }) => {
-
-      if (!peerRef.current) return;
+if (!peerRef.current) {
+  console.log("⏳ ICE received before peer, queuing");
+  pendingCandidates.current.push(new RTCIceCandidate(candidate));
+  return;
+}
 
       const ice = new RTCIceCandidate(candidate);
 
