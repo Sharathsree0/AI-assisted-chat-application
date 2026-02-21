@@ -27,6 +27,11 @@ export const useCall = (socket, selectedUser) => {
     const pc = new RTCPeerConnection({
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
+    {
+  urls: "turn:openrelay.metered.ca:443?transport=tcp",
+  username: "openrelayproject",
+  credential: "openrelayproject"
+}
   ]
 });
     pc.onicecandidate = (event) => {
