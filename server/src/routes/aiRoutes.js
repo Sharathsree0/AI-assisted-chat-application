@@ -1,5 +1,5 @@
 import express from "express";
-import { rephraseText, summarizesText,  } from "../controller/aiController.js";
+import { changeTone, rephraseText, smartReply, softenText, summarizesText,  } from "../controller/aiController.js";
 
 const aiRouter= express.Router();
 
