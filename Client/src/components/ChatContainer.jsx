@@ -82,7 +82,78 @@ const Chatcontainer = () => {
             setAiLoading(false)
         }
     }
+    const handleToneChange = async (tone) => {
+    if (!input.trim()) return;
 
+    try {
+        setAiLoading(true);
+        setShowMenu(false);
+
+        const { data } = await axios.post("/api/ai/tone", {
+            text: input,
+            tone
+        });
+
+        if (data.success) {
+            setOldInput(input);
+            setInput(data.result);
+            setShowDecline(true);
+        }
+
+    } catch {
+        toast.error("AI failed");
+    } finally {
+        setAiLoading(false);
+    }
+};
+const handleSoftenText = async () => {
+    if (!input.trim()) return;
+
+    try {
+        setAiLoading(true);
+        setShowMenu(false);
+
+        const { data } = await axios.post("/api/ai/soften", {
+            text: input
+        });
+
+        if (data.success) {
+            setOldInput(input);
+            setInput(data.result);
+            setShowDecline(true);
+        }
+
+    } catch {
+        toast.error("AI failed");
+    } finally {
+        setAiLoading(false);
+    }
+};
+const handleSmartReply = async () => {
+    try {
+        setAiLoading(true);
+        setShowMenu(false);
+
+        const lastMessages = messages
+            .slice(-5)
+            .map(m => m.text)
+            .join("\n");
+
+        const { data } = await axios.post("/api/ai/smart-reply", {
+            conversation: lastMessages
+        });
+
+        if (data.success) {
+            console.log(data.replies); 
+            // Later you show these as buttons
+        }
+
+    } catch {
+        toast.error("AI failed");
+    } finally {
+        setAiLoading(false);
+    }
+};
     const summarizingHandler = async () => {
         if (!input.trim()) return
         try {
@@ -649,15 +720,52 @@ const Chatcontainer = () => {
                     )}
 
                     {showMenu && (
-                        <div className="absolute bottom-14 right-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg shadow-lg text-sm text-white p-3 w-40 z-50">
-                            <p onClick={handleAiRephrase} className="cursor-pointer hover:text-violet-400">
-                                ✨ Rephrasing
-                            </p>
-                            <p className="cursor-pointer hover:text-violet-400 mt-2" onClick={summarizingHandler}>
-                                🪄 summarizes
-                            </p>
-                        </div>
-                    )}
+    <div className="absolute bottom-14 right-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg shadow-lg text-sm text-white p-3 w-48 z-50">
+
+        <p 
+            onClick={handleAiRephrase} 
+            className="cursor-pointer hover:text-violet-400"
+        >
+            ✨ Fix Grammar
+        </p>
+
+        <p 
+            onClick={summarizingHandler} 
+            className="cursor-pointer hover:text-violet-400 mt-2"
+        >
+            🪄 Summarize
+        </p>
+
+        <p 
+            onClick={() => handleToneChange("formal")} 
+            className="cursor-pointer hover:text-violet-400 mt-2"
+        >
+            🎭 Make Formal
+        </p>
+
+        <p 
+            onClick={() => handleToneChange("friendly")} 
+            className="cursor-pointer hover:text-violet-400 mt-2"
+        >
+            😊 Make Friendly
+        </p>
+
+        <p 
+            onClick={handleSoftenText} 
+            className="cursor-pointer hover:text-violet-400 mt-2"
+        >
+            🤝 Soften Tone
+        </p>
+
+        <p 
+            onClick={handleSmartReply} 
+            className="cursor-pointer hover:text-violet-400 mt-2"
+        >
+            💬 Smart Reply
+        </p>
+
+    </div>
+)}
 
                     <label htmlFor="image" className='p-2 relative group'>
                         <input onChange={handleSendImage} type="file" id="image" accept="image/png, image/jpeg" hidden />
