@@ -6,8 +6,8 @@ import assets from "../assets/assets";
 
 const backenUrl = import.meta.env.VITE_BACKEND_URL;
 
-// ✅ set baseURL
 axios.defaults.baseURL = backenUrl;
+axios.defaults.withCredentials = true;
 
 export const AuthContext = createContext();
 

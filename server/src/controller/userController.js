@@ -27,14 +27,7 @@ export const signup = async (req, res) => {
       bio
     });
 
-    const token = generateToken(newUser._id);
-
-    res.cookie('jwt',{
-      maxAge:7*24*60*60*1000,
-      httpOnly:true,
-      sameSite:process.env.NODE_ENV === "production"?"none":"lax",
-      secure:process.env.NODE_ENV === "production"    
-    })
+ 
     res.json({
       success: true,
       userData: newUser,
@@ -63,8 +56,8 @@ export const login = async (req, res) => {
     }
 
     const token = generateToken(userData._id);
-
-    res.cookie(jwt,{
+  
+    res.cookie("token", token , {
       maxAge:7*24*60*60*1000,
       httpOnly:true,
       sameSite:process.env.NODE_ENV==="production"?"none":"lax",
@@ -85,7 +78,7 @@ export const login = async (req, res) => {
 // LOGOUT (no cookie now)
 export const logout = (req, res) => {
   try{
-    res.cookie("jwt",{maxAge:0})
+    res.clearCookie("token")
   res.json({ success: true, message: "Logged out successfully" });
   }catch(error){
     console.log("Error in logout controller",error.message);
