@@ -1,0 +1,24 @@
+{
+  "name": "ai-assisted-chat-application",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sharathsree0/AI-assisted-chat-application.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Sharathsree0/AI-assisted-chat-application/issues"
+  },
+  "homepage": "https://github.com/Sharathsree0/AI-assisted-chat-application#readme",
+  "description": "",
+  "dependencies": {
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  }
+}

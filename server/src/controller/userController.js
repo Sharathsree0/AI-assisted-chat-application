@@ -29,10 +29,15 @@ export const signup = async (req, res) => {
 
     const token = generateToken(newUser._id);
 
+    res.cookie('jwt',{
+      maxAge:7*24*60*60*1000,
+      httpOnly:true,
+      sameSite:process.env.NODE_ENV === "production"?"none":"lax",
+      secure:process.env.NODE_ENV === "production"    
+    })
     res.json({
       success: true,
       userData: newUser,
-      token, // ✅ send token
       message: "Signup successful"
     });
 
@@ -59,10 +64,15 @@ export const login = async (req, res) => {
 
     const token = generateToken(userData._id);
 
+    res.cookie(jwt,{
+      maxAge:7*24*60*60*1000,
+      httpOnly:true,
+      sameSite:process.env.NODE_ENV==="production"?"none":"lax",
+      secure:process.env.NODE_ENV === "production"    
+    })
     res.json({
       success: true,
       userData,
-      token, // ✅ send token
       message: "Login successful"
     });
 

@@ -3,14 +3,11 @@ import User from "../models/user.js";
 
 export const protectedRoute = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.json({ success: false, message: "No token" });
+   
+    const token = req.cookies.jwt
+    if(!token){
+      return res.json({success:false, message:"Unauthorized-Token not provided"})
     }
-
-    const token = authHeader.split(" ")[1];
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findById(decoded.userId).select("-password");

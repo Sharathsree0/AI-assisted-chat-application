@@ -13,7 +13,7 @@ import { protectedRoute } from "./src/middleWare/auth.js";
 const app =express()
 const PORT =process.env.PORT || 5000
 const server = http.createServer(app)
-
+app.set("trust proxy",1)
 //socket.io to server
 export const io = new Server(server,{
   pingTimeout:60000,
