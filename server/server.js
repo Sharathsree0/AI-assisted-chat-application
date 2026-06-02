@@ -3,7 +3,6 @@ import morgan from "morgan";
 import "dotenv/config"
 import http from "http"
 import cors from "cors"
-import cookieParser from "cookie-parser"
 import { Server } from "socket.io";
 import { connectDB } from "./src/lib/db.js";
 import userRouter from "./src/routes/userRoutes.js";
@@ -100,10 +99,8 @@ socket.on("endCall", ({ receiverId }) => {
 app.use(express.json({limit:"4mb"}));
 app.use(cors({
   origin: process.env.CLIENT_URL,
-  credentials: true
 }));
 app.use(morgan("dev"))
-app.use(cookieParser())
 await connectDB()
 
 app.use("/api/auth",userRouter)

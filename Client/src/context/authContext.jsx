@@ -6,20 +6,28 @@ import assets from "../assets/assets";
 
 const backenUrl = import.meta.env.VITE_BACKEND_URL;
 
+// ✅ set baseURL
 axios.defaults.baseURL = backenUrl;
-axios.defaults.withCredentials = true;
+// ❌ withCredentials is intentionally GONE
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-
     const [authUser, setAuthUser] = useState(null);
     const [onlineUser, setOnlineUser] = useState([]);
     const [socket, setSocket] = useState(null);
     const [globalIncomingCall, setGlobalIncomingCall] = useState(null);
 
-    
-    // ✅ check auth using token
+    // ✅ THE INTERCEPTOR: Automatically attaches token from local storage to headers
+    axios.interceptors.request.use((config) => {
+        const token = localStorage.getItem("token");
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    });
+
+    // check auth
     const checkAuth = async () => {
         try {
             const { data } = await axios.get("/api/auth/check");
@@ -28,16 +36,19 @@ export const AuthProvider = ({ children }) => {
                 connectSocket(data.user);
             }
         } catch (error) {
-            console.log(error,"Auth check failed");
+            console.log(error, "Auth check failed");
         }
     };
 
-    //  LOGIN (store token)
+    // ✅ LOGIN (Store token manually)
     const login = async (state, credentials) => {
         try {
             const { data } = await axios.post(`/api/auth/${state}`, credentials);
 
             if (data.success) {
+                // 🔥 Store the token in the browser
+                localStorage.setItem("token", data.token);
+
                 setAuthUser(data.userData);
                 connectSocket(data.userData);
                 toast.success(data.message);
@@ -46,22 +57,23 @@ export const AuthProvider = ({ children }) => {
                 toast.error(data.message);
                 return false;
             }
-
         } catch (error) {
             toast.error(error.message);
         }
     };
 
-    //  LOGOUT (remove token)
+    // ✅ LOGOUT (Remove token manually)
     const logout = async () => {
-        try{
-            await axios.post("/api/auth/logout");
+        try {
+            // 🔥 Nuke it from local storage, no backend API needed
+            localStorage.removeItem("token");
+            
             setAuthUser(null);
             setOnlineUser([]);
             socket?.disconnect();
             toast.success("Logged out successfully");
-        }catch(error){
-            toast.error("Failed in logout")
+        } catch (error) {
+            toast.error("Failed in logout");
         }
     };
 
@@ -102,7 +114,6 @@ export const AuthProvider = ({ children }) => {
 
         newSocket.on("incomingCall", (data) => {
             setGlobalIncomingCall(data);
-
             const audio = new Audio(assets.ringtone);
             audio.loop = true;
             audio.play();
@@ -131,15 +142,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const value = {
-        axios,
-        authUser,
-        onlineUser,
-        socket,
-        login,
-        logout,
-        updateProfile,
-        globalIncomingCall,
-        setGlobalIncomingCall
+        axios, authUser, onlineUser, socket, login, logout, updateProfile, globalIncomingCall, setGlobalIncomingCall
     };
 
     return (

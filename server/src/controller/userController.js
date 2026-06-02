@@ -27,10 +27,12 @@ export const signup = async (req, res) => {
       bio
     });
 
- 
+    const token = generateToken(newUser._id);
+
     res.json({
       success: true,
       userData: newUser,
+      token, // ✅ Token is back in the JSON
       message: "Signup successful"
     });
 
@@ -57,15 +59,10 @@ export const login = async (req, res) => {
 
     const token = generateToken(userData._id);
   
-    res.cookie("token", token , {
-      maxAge:7*24*60*60*1000,
-      httpOnly:true,
-      sameSite:process.env.NODE_ENV==="production"?"none":"lax",
-      secure:process.env.NODE_ENV === "production"    
-    })
     res.json({
       success: true,
       userData,
+      token, // ✅ Token is back in the JSON
       message: "Login successful"
     });
 
@@ -75,15 +72,10 @@ export const login = async (req, res) => {
   }
 };
 
-// LOGOUT (no cookie now)
+// LOGOUT
 export const logout = (req, res) => {
-  try{
-    res.clearCookie("token")
+  // No more cookies, just a clean success message
   res.json({ success: true, message: "Logged out successfully" });
-  }catch(error){
-    console.log("Error in logout controller",error.message);
-    res.status(500).json({status:false,message:"Server error"})
-  }
 };
 
 // CHECK AUTH
