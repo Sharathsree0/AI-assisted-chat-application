@@ -95,10 +95,10 @@ socket.on("endCall", ({ receiverId }) => {
    }
 })
 })
-
 app.use(express.json({limit:"4mb"}));
 app.use(cors({
-  origin: process.env.CLIENT_URL,
+  origin: "https://ai-assisted-chat-application.vercel.app", 
+  credentials: true
 }));
 app.use(morgan("dev"))
 await connectDB()
