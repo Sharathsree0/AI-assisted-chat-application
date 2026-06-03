@@ -32,7 +32,7 @@ export const signup = async (req, res) => {
     res.json({
       success: true,
       userData: newUser,
-      token, // ✅ Token is back in the JSON
+      token, 
       message: "Signup successful"
     });
 
@@ -62,7 +62,7 @@ export const login = async (req, res) => {
     res.json({
       success: true,
       userData,
-      token, // ✅ Token is back in the JSON
+      token, 
       message: "Login successful"
     });
 
@@ -74,7 +74,6 @@ export const login = async (req, res) => {
 
 // LOGOUT
 export const logout = (req, res) => {
-  // No more cookies, just a clean success message
   res.json({ success: true, message: "Logged out successfully" });
 };
 

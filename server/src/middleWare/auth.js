@@ -3,7 +3,7 @@ import User from "../models/user.js";
 
 export const protectedRoute = async (req, res, next) => {
   try {
-    // ✅ Check headers for the Bearer token
+    //  Check headers for the Bearer token
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
