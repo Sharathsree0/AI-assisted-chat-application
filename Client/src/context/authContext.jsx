@@ -40,6 +40,7 @@ export const AuthProvider = ({ children }) => {
         try {
             const { data } = await axios.post(`/api/auth/${state}`, credentials);
 
+            console.log("BACKEND RESPONSE:", data);
             if (data.success) {
                 localStorage.setItem("token", data.token);
 
