@@ -6,10 +6,9 @@ import assets from "../assets/assets";
 
 const backenUrl = import.meta.env.VITE_BACKEND_URL;
 
-// ✅ set baseURL
+//  set baseURL
 axios.defaults.baseURL = backenUrl;
-// ❌ withCredentials is intentionally GONE
-
+3
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
