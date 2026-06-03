@@ -8,16 +8,13 @@ const backenUrl = import.meta.env.VITE_BACKEND_URL;
 
 //  set baseURL
 axios.defaults.baseURL = backenUrl;
-3
 export const AuthContext = createContext();
-
 export const AuthProvider = ({ children }) => {
     const [authUser, setAuthUser] = useState(null);
     const [onlineUser, setOnlineUser] = useState([]);
     const [socket, setSocket] = useState(null);
     const [globalIncomingCall, setGlobalIncomingCall] = useState(null);
 
-    // ✅ THE INTERCEPTOR: Automatically attaches token from local storage to headers
     axios.interceptors.request.use((config) => {
         const token = localStorage.getItem("token");
         if (token) {
@@ -39,13 +36,11 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // ✅ LOGIN (Store token manually)
     const login = async (state, credentials) => {
         try {
             const { data } = await axios.post(`/api/auth/${state}`, credentials);
 
             if (data.success) {
-                // 🔥 Store the token in the browser
                 localStorage.setItem("token", data.token);
 
                 setAuthUser(data.userData);
@@ -61,10 +56,8 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // ✅ LOGOUT (Remove token manually)
     const logout = async () => {
         try {
-            // 🔥 Nuke it from local storage, no backend API needed
             localStorage.removeItem("token");
             
             setAuthUser(null);
