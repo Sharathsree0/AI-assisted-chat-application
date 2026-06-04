@@ -6,6 +6,13 @@ import assets from "../assets/assets";
 
 const backenUrl = import.meta.env.VITE_BACKEND_URL;
 
+axios.interceptors.request.use((config) => {
+        const token = localStorage.getItem("token");
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    });
 //  set baseURL
 axios.defaults.baseURL = backenUrl;
 export const AuthContext = createContext();
@@ -15,13 +22,7 @@ export const AuthProvider = ({ children }) => {
     const [socket, setSocket] = useState(null);
     const [globalIncomingCall, setGlobalIncomingCall] = useState(null);
 
-    axios.interceptors.request.use((config) => {
-        const token = localStorage.getItem("token");
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    });
+    
 
     // check auth
     const checkAuth = async () => {

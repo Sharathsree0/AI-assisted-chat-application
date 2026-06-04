@@ -1,7 +1,8 @@
 import Message from "../models/message.js";
 import User from "../models/user.js";
 import cloudinary from "../lib/cloudinary.js";
-import { io,userSocketMap } from "../../server.js";
+import { redis } from "../lib/redis.js";
+
 // making to appear all users in the slidebar
 export const getAllUsers=async(req,res)=>{
  try{
@@ -10,12 +11,22 @@ export const getAllUsers=async(req,res)=>{
     //now unseen
     const UnSeenMessages={}
     const promises= filteredUsers.map(async(user)=>{
-        const message= await Message.find({senderId:user._id,receiverId:userId,seen:false})
-        if(message.length>0){
-            UnSeenMessages[user._id]=message.length;
+        const unseencount= await Message.find({senderId:user._id,receiverId:userId,seen:false})
+        if(unseencount.length>0){
+            UnSeenMessages[user._id]=unseencount;
         }
-    })
+        const latestMessage = await Message.findOne({
+            $or: [
+                { senderId: user._id, receiverId: userId },
+                { senderId: userId, receiverId: user._id }
+            ]
+        }).sort({ createdAt: -1 });
+
+        // 3. Attach the timestamp (If you've never chatted, default to the year 1970 so they stay at the bottom)
+        user.latestMessageTimestamp = latestMessage ? latestMessage.createdAt : new Date(0);
+    });
     await Promise.all(promises);
+    filteredUsers.sort((a, b) => b.latestMessageTimestamp - a.latestMessageTimestamp);
     res.json({success:true, users:filteredUsers,UnSeenMessages})
  }catch(error){
     console.log(error.message);
@@ -27,8 +38,8 @@ export const getAllUsers=async(req,res)=>{
 
 export const getMessage =async(req,res)=>{
  try{
-    const selectedUserId=req.params.id
-    const myId= req.user._id
+    const selectedUserId = String(req.params.id).trim();
+    const myId = String(req.user._id).trim();
 
     const message = await Message.find({
         $or:[
@@ -37,10 +48,9 @@ export const getMessage =async(req,res)=>{
         ]
     })
     await Message.updateMany({senderId:selectedUserId,receiverId:myId,seen:false},{seen:true,status:"seen"})
-    const otherUserSocketId=userSocketMap[selectedUserId];
-    if(otherUserSocketId){
-      io.to(otherUserSocketId).emit("messagesSeen",{receiverId:myId,status:"seen"})
-    }
+    const otherUserSocketId= await redis.hget("userSocketMap",selectedUserId.toString());
+   if(otherUserSocketId){
+req.io.to(otherUserSocketId).emit("messagesSeen", { receiverId: myId, status: "seen" });    }
     res.json({success:true,messages:message})
  }catch(error){
     console.log(error.message);
@@ -67,8 +77,8 @@ export const markMessageSeen =async(req,res)=>{
 export const sendMessage =async(req,res)=>{
  try{
     const {text,image,audio } = req.body;
-    const receiverId= req.params.id;
-    const senderId= req.user._id;
+    const receiverId = String(req.params.id).trim();
+    const senderId = String(req.user._id).trim();
     let imageUrl
     if(image){
         const uploadingResponse= await cloudinary.uploader.upload(image)
@@ -89,15 +99,18 @@ if (audio) {
         senderId,receiverId,text,image:imageUrl,audio: audioUrl,status:"sent"
     })
     //socket
-   const reciverSocketId= userSocketMap[receiverId]
+   const reciverSocketId= await redis.hget("userSocketMap",receiverId.toString())
    if(reciverSocketId){
-      io.to(reciverSocketId).emit("newMessage",newMessage)
+      req.io.to(reciverSocketId).emit("newMessage",newMessage)
       newMessage.status="delivered";
       await newMessage.save();
-      io.to(userSocketMap[senderId]).emit("messageStatusUpdate",{
-         messageId:newMessage._id,status:"delivered"
-      })
    }
+
+      const senderSocketId = await redis.hget("userSocketMap",senderId.toString())
+      if(senderSocketId){
+      req.io.to(senderSocketId).emit("messageStatusUpdate",{
+         messageId:newMessage._id,status:"delivered"
+      })}
 
     res.json({success:true,newMessage})
     
@@ -132,21 +145,20 @@ export const reactToMessage= async(req,res)=>{
          }
       }  
       // message reaction
-      const senderSocketId = userSocketMap[message.senderId.toString()];
-      const reciverSocketId = userSocketMap[message.receiverId.toString()]
+      const senderSocketId = await redis.hget("userSocketMap",message.senderId.toString());
+      const reciverSocketId = await redis.hget("userSocketMap",message.receiverId.toString())
       
       if(senderSocketId){
-        io.to(senderSocketId).emit("messageReactionUpdate",{
+        req.io.to(senderSocketId).emit("messageReactionUpdate",{
           messageId,reactions:message.reactions
         })
       }
       if(reciverSocketId){
-        io.to(reciverSocketId).emit("messageReactionUpdate",{
+        req.io.to(reciverSocketId).emit("messageReactionUpdate",{
           messageId,reactions:message.reactions
         })
       }
       await message.save()
-      io.emit("messageReactionUpdate",{messageId,reactions:message.reactions})
       res.json({ success: true, reactions: message.reactions });
 
    }catch(error){
@@ -199,14 +211,14 @@ export const editMessage = async (req, res) => {
     await message.save();
 
     // socket update (both users)
-    const senderSocketId = userSocketMap[message.senderId.toString()];
-    const receiverSocketId = userSocketMap[message.receiverId.toString()];
+    const senderSocketId = await redis.hget("userSocketMap",message.senderId.toString());
+    const receiverSocketId = await redis.hget("userSocketMap",message.receiverId.toString());
 
     if (senderSocketId) {
-      io.to(senderSocketId).emit("messageEdited", message);
+      req.io.to(senderSocketId).emit("messageEdited", message);
     }
     if (receiverSocketId) {
-      io.to(receiverSocketId).emit("messageEdited", message);
+      req.io.to(receiverSocketId).emit("messageEdited", message);
     }
 
     res.json({
@@ -262,17 +274,17 @@ export const deleteMessage = async (req, res) => {
     await message.save();
 
     // socket notify both users
-    const senderSocketId = userSocketMap[message.senderId.toString()];
-    const receiverSocketId = userSocketMap[message.receiverId.toString()];
+    const senderSocketId = await redis.hget("userSocketMap",message.senderId.toString());
+    const receiverSocketId = await redis.hget("userSocketMap",message.receiverId.toString());
 
     if (senderSocketId) {
-      io.to(senderSocketId).emit("messageDeleted", {
+      req.io.to(senderSocketId).emit("messageDeleted", { 
         messageId: message._id
       });
     }
 
     if (receiverSocketId) {
-      io.to(receiverSocketId).emit("messageDeleted", {
+      req.io.to(receiverSocketId).emit("messageDeleted", {
         messageId: message._id
       });
     }

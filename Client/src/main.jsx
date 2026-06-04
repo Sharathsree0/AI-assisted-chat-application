@@ -7,7 +7,6 @@ import { AuthProvider } from './context/authContext.jsx'
 import { ChatProvider } from './context/chatContext.jsx'
 
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
     <BrowserRouter>
       <AuthProvider>
         <ChatProvider>
@@ -15,5 +14,4 @@ createRoot(document.getElementById('root')).render(
         </ChatProvider>
       </AuthProvider>
     </BrowserRouter>
-  </StrictMode>
 )

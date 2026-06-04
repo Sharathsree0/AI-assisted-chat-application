@@ -76,14 +76,14 @@ useEffect(() => {
 useEffect(() => {
    const savedId = localStorage.getItem("selectedUserId")
 
-   if (savedId && users.length > 0) {
+   if (savedId && users.length > 0 && !selectedUser) {
       const matchedUser = users.find(user => user._id === savedId)
 
       if (matchedUser) {
          setSelectedUser(matchedUser)
       }
    }
-}, [users])
+}, [users.length])
 
 useEffect(() => {
     if (!socket) return;
@@ -95,7 +95,7 @@ useEffect(() => {
         if (selectedUser && newMessage.senderId === selectedUser._id) {
             setMessages(prev => [...prev, newMessage]);
             axios.put(`/api/messages/mark/${newMessage._id}`);
-            socket.emit("seenMessage",{senderId:newMessage.senderId})
+            socket.emit("seenMessage",{senderId:String(newMessage.senderId)})
         } else {
             setUnSeenMessages(prev => ({
                 ...(prev || {}),
@@ -118,7 +118,7 @@ const seenHandler = ({ receiverId }) => {
     prev.map(m =>
       m.senderId?.toString() === authUser._id?.toString() &&
       m.receiverId?.toString() === receiverId?.toString()
-        ? { ...m, status: "seen" }
+        ? { ...m, status: "seen", seen:true }
         : m
     )
   );

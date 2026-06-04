@@ -1,3 +1,4 @@
+import { redis } from "./src/lib/redis.js";
 import express from "express";
 import morgan from "morgan";
 import "dotenv/config"
@@ -23,47 +24,52 @@ export const io = new Server(server,{
 })
 
 //online by using socketId as userID
-export const userSocketMap={}; 
+
 //connecting socket handler
-io.on("connection",(socket)=>{
+io.on("connection",async (socket)=>{
   const userId= socket.handshake.query.userId;
   socket.userId = userId;
   console.log("user connected",userId);
-  if(userId) userSocketMap[userId]=socket.id;
+  
+  if(userId) {
+    await redis.hset("userSocketMap",userId,socket.id)
+  }
+    // showing online users
+    const brodcastAllUsers= async()=>{
+      const users = await redis.hkeys("userSocketMap")
+      io.emit("getOnlineUsers",users)
+    }
+    await brodcastAllUsers();
+  
   //typing listener
-  socket.on("typing",(receiverId)=>{
-    const reciverSocketId= userSocketMap[receiverId];
+  socket.on("typing",async(receiverId)=>{
+    if(!receiverId) return;
+    const reciverSocketId= await redis.hget("userSocketMap",receiverId);
     if(reciverSocketId){
       io.to(reciverSocketId).emit("typing")
     }
   });
-  socket.on("stop typing",(receiverId)=>{
-    const reciverSocketId= userSocketMap[receiverId]; 
+  socket.on("stop typing",async(receiverId)=>{
+    if (!receiverId) return;
+    const reciverSocketId= await redis.hget("userSocketMap",receiverId); 
    if(reciverSocketId){
       io.to(reciverSocketId).emit("stop typing")
     }
   })
   //message seen 
-  socket.on("seenMessage", ({ senderId }) => {
-  const senderSocketId = userSocketMap[senderId];
+  socket.on("seenMessage",async ({ senderId }={}) => {
+    if (!senderId) return;
+  const senderSocketId = await redis.hget("userSocketMap",senderId);
   if (senderSocketId) {
     io.to(senderSocketId).emit("messagesSeen",{receiverId:userId});
   }
 });
 
-  // showing online users
-io.emit("getOnlineUsers",Object.keys(userSocketMap))
-  socket.on("disconnect", () => {
-  const userId = socket.userId;
-  delete userSocketMap[userId];
-
-  io.emit("getOnlineUsers", Object.keys(userSocketMap));
-
-});
 
   //audio call invocking
-socket.on("callUser", ({ receiverId, offer, callType }) => {
-   const reciverSocketId = userSocketMap[receiverId]
+socket.on("callUser", async({ receiverId, offer, callType }={}) => {
+  if (!receiverId) return;
+   const reciverSocketId = await redis.hget("userSocketMap",receiverId);
 
    if (reciverSocketId) {
       io.to(reciverSocketId).emit("incomingCall", {
@@ -76,33 +82,44 @@ socket.on("callUser", ({ receiverId, offer, callType }) => {
    }
 })
 
-socket.on("answerCall", ({ callerId, answer }) => {
-   const callerSocketId = userSocketMap[callerId]
+socket.on("answerCall", async({ callerId, answer }={}) => {
+  if (!callerId) return;
+const callerSocketId = await redis.hget("userSocketMap", callerId);
 if (callerSocketId) {
    io.to(callerSocketId).emit("callAnswered", { answer })
 }})
-socket.on("iceCandidate", ({ receiverId, candidate }) => {
-   const receiverSocketId = userSocketMap[receiverId]
-   if (receiverSocketId) {
+socket.on("iceCandidate",async ({ receiverId, candidate }={}) => {
+  if (!receiverId) return;
+const receiverSocketId = await redis.hget("userSocketMap", receiverId);   if (receiverSocketId) {
       io.to(receiverSocketId).emit("iceCandidate", { candidate })
    }
 })
-socket.on("endCall", ({ receiverId }) => {
-   const receiverSocketId = userSocketMap[receiverId]
-
+socket.on("endCall",async ({ receiverId }={}) => {
+  if (!receiverId) return;
+const receiverSocketId = await redis.hget("userSocketMap", receiverId);
    if (receiverSocketId) {
       io.to(receiverSocketId).emit("callEnded")
    }
 })
+
+socket.on("disconnect",async () => {
+  if(userId){
+    await redis.hdel("userSocketMap", userId);
+await brodcastAllUsers();
+  }
+});
 })
 app.use(express.json({limit:"4mb"}));
 app.use(cors({
-  origin: "https://ai-assisted-chat-application.vercel.app", 
+  origin: process.env.CLIENT_URL, 
   credentials: true
 }));
 app.use(morgan("dev"))
 await connectDB()
-
+app.use((req, res, next) => {
+    req.io = io;
+    next();
+});
 app.use("/api/auth",userRouter)
 app.use("/api/ai",aiRouter)
 app.use("/api/messages",messageRouter)
