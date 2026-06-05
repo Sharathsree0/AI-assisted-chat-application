@@ -8,6 +8,7 @@ const backenUrl = import.meta.env.VITE_BACKEND_URL;
 
 axios.interceptors.request.use((config) => {
         const token = localStorage.getItem("token");
+        console.log("TOKEN SENT:", token);
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -55,7 +56,7 @@ export const AuthProvider = ({ children }) => {
             console.log("BACKEND RESPONSE:", data);
             if (data.success) {
                 localStorage.setItem("token", data.token);
-
+                console.log("Stored:", localStorage.getItem("token"));
                 setAuthUser(data.userData);
                 connectSocket(data.userData);
                 toast.success(data.message);
