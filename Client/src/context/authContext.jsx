@@ -54,8 +54,9 @@ export const AuthProvider = ({ children }) => {
                 return false;
             }
         } catch (error) {
-            toast.error(error.message);
-        }
+const errorMessage = error.response?.data?.message || "Login failed. Please try again.";
+            toast.error(errorMessage);
+            return false;        }
     };
 
     const logout = async () => {
