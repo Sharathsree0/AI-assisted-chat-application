@@ -7,13 +7,13 @@ import { redis } from "../lib/redis.js";
 export const getAllUsers=async(req,res)=>{
  try{
     const userId= req.user._id;
-    const filteredUsers=await User.find({_id:{$ne: userId}}).select("-password");
+    const filteredUsers=await User.find({_id:{$ne: userId}}).select("-password").lean();
     //now unseen
     const UnSeenMessages={}
     const promises= filteredUsers.map(async(user)=>{
         const unseencount= await Message.find({senderId:user._id,receiverId:userId,seen:false})
         if(unseencount.length>0){
-            UnSeenMessages[user._id]=unseencount;
+            UnSeenMessages[user._id]=unseencount.length;
         }
         const latestMessage = await Message.findOne({
             $or: [
