@@ -30,14 +30,6 @@ export const AuthProvider = ({ children }) => {
         try {
             const { data } = await axios.get("/api/auth/check");
             if (data.success) {
-                console.log("TOKEN FROM SERVER:", data.token);
-
-    localStorage.setItem("token", data.token);
-
-    console.log(
-      "TOKEN AFTER STORE:",
-      localStorage.getItem("token")
-    );
                 setAuthUser(data.user);
                 connectSocket(data.user);
                 return true;
