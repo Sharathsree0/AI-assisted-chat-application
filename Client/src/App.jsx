@@ -9,11 +9,21 @@ import { AuthContext } from './context/authContext'
 import { ChatContext } from './context/chatContext'
  
 function App() {
-  const {authUser,globalIncomingCall, setGlobalIncomingCall}=useContext(AuthContext)
+  const {
+    authUser,loading, globalIncomingCall, setGlobalIncomingCall
+  }=useContext(AuthContext)
 const { setSelectedUser,selectedUser  } = useContext(ChatContext);
 
+if (loading) {
+  return (
+    <div className="h-screen flex items-center justify-center">
+      Loading...
+    </div>
+  );
+}
   return (
     <div className="bg-[url('./src/assets/bgimage.svg')] bg-contain bg-black bg-no-repeat bg-center">
+      
       <Toaster/>
       {globalIncomingCall &&
  selectedUser?._id !== globalIncomingCall.callerId && (

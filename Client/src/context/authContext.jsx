@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
     const [onlineUser, setOnlineUser] = useState([]);
     const [socket, setSocket] = useState(null);
     const [globalIncomingCall, setGlobalIncomingCall] = useState(null);
-
+    const [loading, setLoading]= useState(true)
     
 
     // check auth
@@ -34,6 +34,8 @@ export const AuthProvider = ({ children }) => {
             }
         } catch (error) {
             console.log(error, "Auth check failed");
+        } finally{
+            setLoading(false)
         }
     };
 
@@ -62,7 +64,7 @@ const errorMessage = error.response?.data?.message || "Login failed. Please try 
     const logout = async () => {
         try {
             localStorage.removeItem("token");
-            
+            localStorage.removeItem("selectedUserId")
             setAuthUser(null);
             setOnlineUser([]);
             socket?.disconnect();
@@ -137,7 +139,7 @@ const errorMessage = error.response?.data?.message || "Login failed. Please try 
     }, []);
 
     const value = {
-        axios, authUser, onlineUser, socket, login, logout, updateProfile, globalIncomingCall, setGlobalIncomingCall
+        axios, authUser,loading, onlineUser, socket, login, logout, updateProfile, globalIncomingCall, setGlobalIncomingCall
     };
 
     return (
